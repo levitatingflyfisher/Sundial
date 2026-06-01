@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Warm linen background -->
+  <rect width="1024" height="1024" fill="#F5F0E8"/>
+
+  <!-- Track arc: full semicircle above baseline, linen-200 gray -->
+  <path d="M 212 680 A 300 300 0 0 1 812 680"
+        stroke="#C8B89A" stroke-width="52" fill="none" stroke-linecap="round"/>
+
+  <!-- Sweep arc: left to top (50% progress), sage-500 -->
+  <path d="M 212 680 A 300 300 0 0 1 512 380"
+        stroke="#5E9478" stroke-width="52" fill="none" stroke-linecap="round"/>
+
+  <!-- Base line -->
+  <line x1="164" y1="680" x2="860" y2="680"
+        stroke="#C8B89A" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Gnomon line (center → sun), subtle -->
+  <line x1="512" y1="680" x2="512" y2="380"
+        stroke="#5E9478" stroke-width="14" stroke-opacity="0.28" stroke-linecap="round"/>
+
+  <!-- Sun circle -->
+  <circle cx="512" cy="380" r="50" fill="#5E9478"/>
+</svg>
