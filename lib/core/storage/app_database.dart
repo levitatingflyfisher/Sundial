@@ -59,7 +59,17 @@ class UserPrefs extends Table {
 @DriftDatabase(tables: [Profiles, Sessions, Badges, UserPrefs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'sundial'));
+      : super(executor ??
+            driftDatabase(
+              name: 'sundial',
+              // Web needs to know where the sqlite3 WASM engine + drift worker
+              // live (both shipped in web/); without this drift_flutter throws
+              // "the `web` parameter needs to be set" at startup.
+              web: DriftWebOptions(
+                sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                driftWorker: Uri.parse('drift_worker.js'),
+              ),
+            ));
 
   @override
   int get schemaVersion => 3;
