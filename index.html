@@ -41,6 +41,9 @@
 (function(){
   // Self-heal stale PWA caches: when a new service worker takes over after a
   // redeploy, reload once so a returning visitor never sees a blank stale shell.
+  // Ask the browser to keep local data (IndexedDB / OPFS) across sessions
+  // so an installed-to-home-screen PWA is not evicted under storage pressure.
+  if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
   if('serviceWorker' in navigator){var done=false;
     navigator.serviceWorker.addEventListener('controllerchange',function(){if(done)return;done=true;location.reload();});
     navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update();});}).catch(function(){});}
