@@ -31,6 +31,7 @@
 
   <title>sundial</title>
   <link rel="manifest" href="manifest.json">
+  <script>/* keep local data across sessions (resist eviction on installed PWAs) */if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}</script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
