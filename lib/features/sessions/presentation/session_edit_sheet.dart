@@ -23,6 +23,47 @@ class SessionEditSheet extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<SessionEditSheet> createState() => _SessionEditSheetState();
+
+  /// Builds the [Session] to persist from the editor's fields. Extracted so the
+  /// date/time consistency can be unit-tested without driving the sheet UI.
+  @visibleForTesting
+  static Session buildSessionForSave({
+    required Session? existing,
+    required String sessionId,
+    required DateTime date,
+    required int durationSecs,
+    required String notes,
+    required int nowMs,
+  }) {
+    final dateDay =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final base = existing ??
+        Session(
+          id: sessionId,
+          startTime: date.millisecondsSinceEpoch,
+          endTime: date.millisecondsSinceEpoch + durationSecs * 1000,
+          durationSecs: durationSecs,
+          notes: null,
+          dateDay: dateDay,
+          locationLabel: null,
+          lat: null,
+          lng: null,
+          createdAt: nowMs,
+          updatedAt: nowMs,
+        );
+    return base.copyWith(
+      // startTime/endTime must follow the edited date, not just dateDay — the
+      // card, the re-opened editor, and exports all read startTime, while
+      // calendar grouping + the heatmap group by dateDay. Updating only dateDay
+      // left an edited session showing on two different days.
+      startTime: date.millisecondsSinceEpoch,
+      endTime: date.millisecondsSinceEpoch + durationSecs * 1000,
+      durationSecs: durationSecs,
+      notes: Value(notes.isEmpty ? null : notes),
+      dateDay: dateDay,
+      updatedAt: nowMs,
+    );
+  }
 }
 
 class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
@@ -160,21 +201,13 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
     final dateDay =
         '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
 
-    final updated = (_session ?? Session(
-      id: widget.sessionId,
-      startTime: _date.millisecondsSinceEpoch,
-      endTime: _date.millisecondsSinceEpoch + durationSecs * 1000,
+    final updated = SessionEditSheet.buildSessionForSave(
+      existing: _session,
+      sessionId: widget.sessionId,
+      date: _date,
       durationSecs: durationSecs,
-      notes: null,
-      dateDay: dateDay,
-      locationLabel: null, lat: null, lng: null,
-      createdAt: now.millisecondsSinceEpoch,
-      updatedAt: now.millisecondsSinceEpoch,
-    )).copyWith(
-      durationSecs: durationSecs,
-      notes: Value(_notes.isEmpty ? null : _notes),
-      dateDay: dateDay,
-      updatedAt: now.millisecondsSinceEpoch,
+      notes: _notes,
+      nowMs: now.millisecondsSinceEpoch,
     );
 
     final timerState = ref.read(timerNotifierProvider);
