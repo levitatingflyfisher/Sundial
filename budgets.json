@@ -1,0 +1,5 @@
+{
+  "_measured": "2026-07-17 dev box: build/web/main.dart.js gzip -c | wc -c = 1221374; build/app/outputs/flutter-apk/app-arm64-v8a-release.apk = 22823415 bytes; budgets = baseline * 1.05 rounded up",
+  "main_dart_js_gz_max_bytes": 1282443,
+  "apk_arm64_max_bytes": 23964586
+}

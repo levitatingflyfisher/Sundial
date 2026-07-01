@@ -2,6 +2,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sundial/core/error/failures.dart';
 import 'package:sundial/core/storage/app_database.dart';
+import 'package:sundial/features/sessions/domain/session_invariants.dart';
 import 'package:sundial/features/sessions/domain/sessions_repository.dart';
 import 'sessions_dao.dart';
 
@@ -23,7 +24,16 @@ class LocalSessionsRepository implements SessionsRepository {
   @override
   Future<Either<StorageFailure, Unit>> saveSession(Session session) async {
     try {
-      await _dao.upsert(session.toCompanion(true));
+      // Repository-boundary enforcement of the duration invariant: callers
+      // (timer, manual entry, edit sheet, import) may each validate, but the
+      // last line of defense lives HERE so no write path can poison the SUM
+      // aggregates or the badge milestones. Clamp, don't reject — the save
+      // contract stays non-destructive.
+      final clamped = clampSessionDurationSecs(session.durationSecs);
+      final sanitized = clamped == session.durationSecs
+          ? session
+          : session.copyWith(durationSecs: clamped);
+      await _dao.upsert(sanitized.toCompanion(true));
       return right(unit);
     } catch (e) {
       return left(StorageFailure(e.toString()));

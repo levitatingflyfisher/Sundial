@@ -6,6 +6,19 @@ import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
 import 'package:sundial/features/timer/presentation/timer_notifier.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
+import 'package:sundial/features/sessions/domain/sessions_repository.dart';
+
+/// A sessions repo whose writes always fail — to prove a failed save is
+/// surfaced, not silently treated as success.
+class _FailingSessionsRepo implements SessionsRepository {
+  @override
+  Future<Either<StorageFailure, Unit>> saveSession(Session s) async =>
+      const Left(StorageFailure('disk full'));
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
 
 ProviderContainer makeContainer({Map<String, Object> prefsValues = const {}}) {
   SharedPreferences.setMockInitialValues(prefsValues);
@@ -47,6 +60,53 @@ void main() {
 
       await container.read(timerNotifierProvider.notifier).start();
       expect(container.read(timerNotifierProvider), isA<TimerRunning>());
+    });
+
+    test('auto-stop persists the elapsed session (not lost on app kill)',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase(NativeDatabase.memory());
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => db),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      await notifier.autoStopAndSave();
+
+      expect(container.read(timerNotifierProvider), isA<TimerIdle>());
+      final rows = await db.select(db.sessions).get();
+      expect(rows, hasLength(1),
+          reason: 'auto-stop must persist the session, not keep it only in memory');
+    });
+
+    test('confirmSession surfaces a failed write and keeps the session',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+        sessionsRepositoryProvider.overrideWith((_) => _FailingSessionsRepo()),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      await notifier.buildDraftSession();
+      final stopped = container.read(timerNotifierProvider);
+      expect(stopped, isA<TimerStopped>());
+
+      final result =
+          await notifier.confirmSession((stopped as TimerStopped).session);
+
+      expect(result.isLeft(), isTrue,
+          reason: 'a failed write must surface, not be treated as success');
+      expect(container.read(timerNotifierProvider), isA<TimerStopped>(),
+          reason: 'the session must stay recoverable, not be cleared to Idle');
     });
 
     test('pause transitions running → paused', () async {
@@ -109,6 +169,70 @@ void main() {
       expect(state, isA<TimerRunning>());
       final elapsed = container.read(timerNotifierProvider.notifier).elapsed;
       expect(elapsed.inMinutes, closeTo(30, 1));
+    });
+  });
+
+  // Two independent stop paths exist in production: the native MethodChannel
+  // push (main.dart -> stopAndSave(fromNative: true)) and the 1s
+  // SharedPreferences-flag ticker (timer_notifier.dart). Both can fire for
+  // the same tap. Without an in-flight latch each call passes the state
+  // guard (state only becomes Idle after several awaits) and persists its
+  // own duplicate session — or, in the reverse interleaving, the loser
+  // throws an uncaught StateError inside the ticker callback.
+  group('TimerNotifier concurrent stop', () {
+    test(
+        'two overlapping stopAndSave calls save exactly one session '
+        'and neither throws', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase(NativeDatabase.memory());
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => db),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+
+      // Fire both stop paths WITHOUT awaiting between them, exactly as the
+      // native push and the ticker can interleave in production.
+      final f1 = notifier.stopAndSave(fromNative: true);
+      final f2 = notifier.stopAndSave();
+      // Neither future may throw (guards against the reverse-interleaving
+      // StateError); a count-only assertion would green-light a fix that
+      // still throws on the losing path.
+      final sessions = await Future.wait([f1, f2]);
+
+      expect(sessions[0].id, sessions[1].id,
+          reason: 'both stop paths must resolve to the SAME saved session');
+      final rows = await db.select(db.sessions).get();
+      expect(rows, hasLength(1),
+          reason: 'concurrent stop paths must not double-save the session');
+    });
+
+    test('a legitimate stop after a fresh start is not served a stale future',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase(NativeDatabase.memory());
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => db),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      final first = await notifier.stopAndSave();
+      await notifier.start();
+      final second = await notifier.stopAndSave();
+
+      expect(second.id, isNot(first.id),
+          reason: 'a second start/stop cycle must persist a NEW session, '
+              'not replay the previous stop');
+      final rows = await db.select(db.sessions).get();
+      expect(rows, hasLength(2));
     });
   });
 

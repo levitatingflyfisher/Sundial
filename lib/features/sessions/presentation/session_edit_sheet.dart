@@ -1,4 +1,6 @@
 // lib/features/sessions/presentation/session_edit_sheet.dart
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
 import 'package:drift/drift.dart' hide Table, Column;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,47 @@ class SessionEditSheet extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<SessionEditSheet> createState() => _SessionEditSheetState();
+
+  /// Builds the [Session] to persist from the editor's fields. Extracted so the
+  /// date/time consistency can be unit-tested without driving the sheet UI.
+  @visibleForTesting
+  static Session buildSessionForSave({
+    required Session? existing,
+    required String sessionId,
+    required DateTime date,
+    required int durationSecs,
+    required String notes,
+    required int nowMs,
+  }) {
+    final dateDay =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final base = existing ??
+        Session(
+          id: sessionId,
+          startTime: date.millisecondsSinceEpoch,
+          endTime: date.millisecondsSinceEpoch + durationSecs * 1000,
+          durationSecs: durationSecs,
+          notes: null,
+          dateDay: dateDay,
+          locationLabel: null,
+          lat: null,
+          lng: null,
+          createdAt: nowMs,
+          updatedAt: nowMs,
+        );
+    return base.copyWith(
+      // startTime/endTime must follow the edited date, not just dateDay — the
+      // card, the re-opened editor, and exports all read startTime, while
+      // calendar grouping + the heatmap group by dateDay. Updating only dateDay
+      // left an edited session showing on two different days.
+      startTime: date.millisecondsSinceEpoch,
+      endTime: date.millisecondsSinceEpoch + durationSecs * 1000,
+      durationSecs: durationSecs,
+      notes: Value(notes.isEmpty ? null : notes),
+      dateDay: dateDay,
+      updatedAt: nowMs,
+    );
+  }
 }
 
 class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
@@ -160,37 +203,42 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
     final dateDay =
         '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
 
-    final updated = (_session ?? Session(
-      id: widget.sessionId,
-      startTime: _date.millisecondsSinceEpoch,
-      endTime: _date.millisecondsSinceEpoch + durationSecs * 1000,
+    final updated = SessionEditSheet.buildSessionForSave(
+      existing: _session,
+      sessionId: widget.sessionId,
+      date: _date,
       durationSecs: durationSecs,
-      notes: null,
-      dateDay: dateDay,
-      locationLabel: null, lat: null, lng: null,
-      createdAt: now.millisecondsSinceEpoch,
-      updatedAt: now.millisecondsSinceEpoch,
-    )).copyWith(
-      durationSecs: durationSecs,
-      notes: Value(_notes.isEmpty ? null : _notes),
-      dateDay: dateDay,
-      updatedAt: now.millisecondsSinceEpoch,
+      notes: _notes,
+      nowMs: now.millisecondsSinceEpoch,
     );
 
     final timerState = ref.read(timerNotifierProvider);
+    final Either<StorageFailure, Unit> result;
     if (timerState is TimerStopped) {
-      await ref.read(timerNotifierProvider.notifier).confirmSession(updated);
+      result =
+          await ref.read(timerNotifierProvider.notifier).confirmSession(updated);
     } else {
-      await ref.read(sessionsRepositoryProvider).saveSession(updated);
-      final newBadges = await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
-      if (newBadges.isNotEmpty) {
-        ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
+      result = await ref.read(sessionsRepositoryProvider).saveSession(updated);
+      if (result.isRight()) {
+        final newBadges =
+            await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
+        if (newBadges.isNotEmpty) {
+          ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
+        }
+        await ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
+        await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
       }
-      await ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
-      await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
     }
 
-    if (context.mounted) context.pop();
+    if (!context.mounted) return;
+    // Don't silently pop on a failed write — surface it and keep the sheet open
+    // so the user can retry instead of losing the session.
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't save the session: ${failure.message}")),
+      ),
+      (_) => context.pop(),
+    );
   }
 }
 

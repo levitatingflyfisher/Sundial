@@ -88,9 +88,9 @@ void main() {
         _sess(id: 's3', day: '2026-04-02', durationSecs: 7200, notes: 'hike'),
       ];
       final badges = [
-        Badge(id: 'badge_10h', thresholdHours: 10, earnedAt: 1700000000000),
-        Badge(id: 'badge_25h', thresholdHours: 25, earnedAt: null),
-        Badge(id: 'badge_50h', thresholdHours: 50, earnedAt: 1700000500000),
+        const Badge(id: 'badge_10h', thresholdHours: 10, earnedAt: 1700000000000),
+        const Badge(id: 'badge_25h', thresholdHours: 25, earnedAt: null),
+        const Badge(id: 'badge_50h', thresholdHours: 50, earnedAt: 1700000500000),
       ];
 
       final json = exporter.buildJson(
@@ -181,6 +181,38 @@ void main() {
       expect(parsed.earnedBadges, isEmpty);
     });
 
+    test('skips a malformed session row instead of aborting the import', () {
+      // One good row, one missing the required duration_secs. A foreign or
+      // partial export must not abort the whole import with a type error.
+      const payload = '{'
+          '"version":2,'
+          '"sessions":['
+          '{"id":"good","start_time":0,"end_time":3600000,'
+          '"duration_secs":3600,"date_day":"2026-01-15",'
+          '"created_at":0,"updated_at":0},'
+          '{"id":"bad","start_time":0,"end_time":3600000,'
+          '"date_day":"2026-01-16","created_at":0,"updated_at":0}'
+          ']'
+          '}';
+      final parsed = importer.parse(payload);
+      expect(parsed.sessions, hasLength(1),
+          reason: 'the row missing duration_secs must be skipped, not throw');
+      expect(parsed.sessions.single.id, 'good');
+    });
+
+    test('clamps an out-of-range imported duration to [0, 86400]', () {
+      const payload = '{'
+          '"version":2,'
+          '"sessions":['
+          '{"id":"huge","start_time":0,"end_time":90000000,'
+          '"duration_secs":999999,"date_day":"2026-01-15",'
+          '"created_at":0,"updated_at":0}'
+          ']'
+          '}';
+      final parsed = importer.parse(payload);
+      expect(parsed.sessions.single.durationSecs, 86400);
+    });
+
     test('v2 (profiles, no badges) parses cleanly with profile attribution', () {
       const v2 = '{'
           '"version":2,'
@@ -243,21 +275,21 @@ void main() {
     test('full DB export → import into a fresh DB reproduces all data',
         () async {
       // ── Populate source DB ──
-      await profilesRepo.upsertRaw(ProfilesCompanion(
-        id: const Value('p1'),
-        name: const Value('Alice'),
-        emoji: const Value('🌱'),
-        colorValue: const Value(0xFF5E9478),
-        sortOrder: const Value(0),
-        createdAt: const Value(1700000000000),
+      await profilesRepo.upsertRaw(const ProfilesCompanion(
+        id: Value('p1'),
+        name: Value('Alice'),
+        emoji: Value('🌱'),
+        colorValue: Value(0xFF5E9478),
+        sortOrder: Value(0),
+        createdAt: Value(1700000000000),
       ));
-      await profilesRepo.upsertRaw(ProfilesCompanion(
-        id: const Value('p2'),
-        name: const Value('Bob'),
-        emoji: const Value.absent(),
-        colorValue: const Value(0xFFD48B44),
-        sortOrder: const Value(1),
-        createdAt: const Value(1700000100000),
+      await profilesRepo.upsertRaw(const ProfilesCompanion(
+        id: Value('p2'),
+        name: Value('Bob'),
+        emoji: Value.absent(),
+        colorValue: Value(0xFFD48B44),
+        sortOrder: Value(1),
+        createdAt: Value(1700000100000),
       ));
       await sessionsRepo.saveSession(_sess(
           id: 's1',

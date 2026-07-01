@@ -2,7 +2,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/sessions/data/local_sessions_repository.dart';
 import 'package:sundial/features/sessions/data/sessions_dao.dart';
@@ -84,6 +83,43 @@ void main() {
       await repo.saveSession(_makeSession(id: 'b', dateDay: '2026-03-28'));
       final sessions = await repo.watchAllSessions().first;
       expect(sessions.first.id, 'b');
+    });
+  });
+
+  // The 0 <= durationSecs <= 86400 invariant used to live only in three
+  // presentation-layer checks (timer clamp, manual-entry, edit sheet); the
+  // repository accepted any Session verbatim, so a corrupt or crafted
+  // duration (e.g. from an imported backup) poisoned every SUM aggregate
+  // and auto-awarded every hour-milestone badge. The repository boundary is
+  // the single source of truth for the invariant.
+  group('durationSecs invariant at the repository boundary', () {
+    test('saveSession clamps an oversized duration to one day (86400s)',
+        () async {
+      final result =
+          await repo.saveSession(_makeSession(durationSecs: 999999999));
+      expect(result.isRight(), isTrue,
+          reason: 'clamping is non-destructive — the save must still succeed');
+
+      final rows = await db.select(db.sessions).get();
+      expect(rows.single.durationSecs, 86400,
+          reason: 'a stored duration must never exceed 24h — it would '
+              'poison every aggregate and auto-award every badge');
+    });
+
+    test('saveSession clamps a negative duration to 0', () async {
+      final result =
+          await repo.saveSession(_makeSession(durationSecs: -50000));
+      expect(result.isRight(), isTrue);
+
+      final rows = await db.select(db.sessions).get();
+      expect(rows.single.durationSecs, 0,
+          reason: 'a negative stored duration would subtract from SUMs');
+    });
+
+    test('saveSession stores an in-range duration verbatim', () async {
+      await repo.saveSession(_makeSession(durationSecs: 3600));
+      final rows = await db.select(db.sessions).get();
+      expect(rows.single.durationSecs, 3600);
     });
   });
 

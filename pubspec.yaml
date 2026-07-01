@@ -10,6 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.5.1
+  # clock.now() instead of DateTime.now() in date-windowed UI so tests can
+  # pin "today" with withClock (StillLife precedent) — date-relative renders
+  # otherwise go stale daily and date-seeded goldens rot.
+  clock: ^1.1.1
   riverpod_annotation: ^2.3.5
   drift: ^2.18.0
   drift_flutter: ^0.2.2
@@ -17,7 +21,8 @@ dependencies:
   go_router: ^14.2.7
   fpdart: ^1.1.0
   uuid: ^4.4.2
-  intl: ^0.19.0
+  # 0.20.2 floor required by sanctuary_backup_ui's sibling path dep.
+  intl: ^0.20.2
   shared_preferences: ^2.3.2
   path_provider: ^2.1.4
   path: ^1.9.0
@@ -25,10 +30,19 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.1
   share_plus: ^10.0.3
-  google_fonts: ^6.2.1
   lucide_flutter: ^1.7.0
   file_picker: ^8.1.0
   home_widget: ^0.7.0
+  # OpenHearth design tokens (canonical colors + the shared Material-scale
+  # TextTheme ladder) — sibling path dep like the sanctuary packages below.
+  openhearth_design:
+    path: ../ohStyle/openhearth_design
+  # Encrypted backup (.ohbk) — sibling path deps, eloEngine precedent
+  # (SANCTUARY-BRIEF §3). Clone both next to this repo; see README.
+  sanctuary_auth_core:
+    path: ../packages/sanctuary_auth_core
+  sanctuary_backup_ui:
+    path: ../packages/sanctuary_backup_ui
 
 flutter_launcher_icons:
   android: true
@@ -48,7 +62,14 @@ dev_dependencies:
   riverpod_generator: ^2.4.3
   drift_dev: ^2.18.0
   mocktail: ^1.0.4
+  # Tests fake the share sheet by swapping SharePlatform.instance; share_plus
+  # doesn't re-export the interface, so it's a direct dev dependency.
+  share_plus_platform_interface: ^5.0.2
   flutter_lints: ^4.0.0
+  # The fleet's standards as tests that can fail (C1 style … C6 harness) —
+  # sibling path dep like the sanctuary packages above.
+  oh_fleet_conformance:
+    path: ../packages/oh_fleet_conformance
   flutter_goldens:
     sdk: flutter
 
@@ -57,3 +78,23 @@ flutter:
 
   assets:
     - assets/icon/
+
+  fonts:
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf
+        - asset: assets/fonts/Lora-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Lora-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Lora-Bold.ttf
+          weight: 700
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+        - asset: assets/fonts/Nunito-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Nunito-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700

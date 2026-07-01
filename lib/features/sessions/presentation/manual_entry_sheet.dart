@@ -148,7 +148,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
       ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
     }
     await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
-    if (context.mounted) context.pop();
+    if (mounted) context.pop();
   }
 }
 

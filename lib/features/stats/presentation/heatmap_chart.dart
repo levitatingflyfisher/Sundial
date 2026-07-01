@@ -1,4 +1,5 @@
 // lib/features/stats/presentation/heatmap_chart.dart
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sundial/core/providers/core_providers.dart';
@@ -81,7 +82,9 @@ class _HeatmapChartState extends ConsumerState<HeatmapChart> {
                 child: CustomPaint(
                   painter: _HeatmapPainter(
                     byDay: byDay,
-                    today: DateTime.now(),
+                    // clock.now() so tests can pin the heatmap's today
+                    // boundary with withClock (date-stable goldens).
+                    today: clock.now(),
                     weekStartDay: weekStartDay,
                     activeColor: cs.primary,
                     emptyColor: cs.surfaceContainerHighest,

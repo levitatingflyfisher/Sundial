@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:sundial/core/storage/app_database.dart' hide UserPrefs;
 import 'package:sundial/features/settings/domain/settings_repository.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';

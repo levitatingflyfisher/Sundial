@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sundial stores all data locally and unencrypted (the privacy promise is
+  "everything stays on your device"). Exclude app data from both cloud
+  backup (Android 12+) and device-to-device transfer so the plaintext
+  Drift/SQLite database and SharedPreferences never silently leave the
+  device. The explicit, user-driven export flow is the sanctioned backup
+  path.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

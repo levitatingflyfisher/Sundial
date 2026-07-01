@@ -1,4 +1,6 @@
 // lib/features/timer/presentation/timer_notifier.dart
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
@@ -8,6 +10,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
+import 'package:sundial/features/sessions/domain/session_invariants.dart';
 import 'package:sundial/features/timer/data/timer_notification_service.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
 
@@ -17,6 +20,15 @@ part 'timer_notifier.g.dart';
 class TimerNotifier extends _$TimerNotifier {
   Timer? _ticker;
   int _tickCount = 0;
+
+  /// In-flight (or last completed) stopAndSave. Two independent stop paths
+  /// exist — the native MethodChannel push and the 1s SharedPreferences-flag
+  /// ticker — and both can fire for the same tap. The latch makes the second
+  /// caller join the first save instead of persisting a duplicate session
+  /// (or throwing StateError once the first has reached Idle). It is kept
+  /// after completion so a late losing path still resolves gracefully, and
+  /// reset by start() so a new cycle never sees a stale future.
+  Future<Session>? _stopFuture;
   static const _startKey = 'timer_start_ms';
   static const _accKey = 'timer_paused_accumulated_secs';
   static const _profileKey = 'timer_profile_id';
@@ -128,13 +140,14 @@ class TimerNotifier extends _$TimerNotifier {
       // Refresh home widget every 60s while the timer runs.
       _tickCount++;
       if (_tickCount % 60 == 0 && state is TimerRunning) {
-        _updateHomeWidget(_dayFmt.format(DateTime.now()));
+        _updateHomeWidget();
       }
     });
   }
 
   Future<void> start() async {
     if (state is! TimerIdle) return;
+    _stopFuture = null; // new cycle — a stale stop future must not be replayed
     final profileId = ref.read(activeProfileIdProvider);
     final now = DateTime.now();
     final prefs = ref.read(sharedPreferencesProvider);
@@ -152,7 +165,7 @@ class TimerNotifier extends _$TimerNotifier {
       startTime: now,
       durationMs: _durationMs,
     ));
-    _updateHomeWidget(_dayFmt.format(now));
+    _updateHomeWidget();
   }
 
   Future<void> pause({bool fromNative = false}) async {
@@ -235,7 +248,7 @@ class TimerNotifier extends _$TimerNotifier {
       id: const Uuid().v4(),
       startTime: startTime.millisecondsSinceEpoch,
       endTime: now.millisecondsSinceEpoch,
-      durationSecs: elapsed.inSeconds.clamp(0, 86400),
+      durationSecs: clampSessionDurationSecs(elapsed.inSeconds),
       notes: null,
       dateDay: _dayFmt.format(startTime),
       profileId: profileId,
@@ -250,16 +263,19 @@ class TimerNotifier extends _$TimerNotifier {
     return session;
   }
 
-  Future<void> confirmSession(Session session) async {
+  Future<Either<StorageFailure, Unit>> confirmSession(Session session) async {
     final repo = ref.read(sessionsRepositoryProvider);
     // 'everyone' sessions store profileId=null — counts once in stats, appears
     // in every profile's filtered view via the IS NULL clause in watchAllFiltered.
-    if (session.profileId == kEveryoneProfileId) {
-      final nullSession = session.copyWith(profileId: const Value(null));
-      await repo.saveSession(nullSession);
-    } else {
-      await repo.saveSession(session);
-    }
+    final toSave = session.profileId == kEveryoneProfileId
+        ? session.copyWith(profileId: const Value(null))
+        : session;
+    final result = await repo.saveSession(toSave);
+    // Don't treat a failed write as success: keep the session recoverable
+    // (state stays TimerStopped) so the caller can surface the error and the
+    // user can retry, instead of silently losing a tracked session.
+    if (result.isLeft()) return result;
+
     final newBadges =
         await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
     if (newBadges.isNotEmpty) {
@@ -267,17 +283,50 @@ class TimerNotifier extends _$TimerNotifier {
     }
     final profileId = session.profileId ?? 'default';
     state = const TimerIdle();
-    _updateHomeWidget(session.dateDay);
+    _updateHomeWidget();
     unawaited(dismissTimerNotification(profileId));
+    return result;
   }
 
-  Future<Session> stopAndSave({bool fromNative = false}) async {
+  /// Auto-stop path: build the elapsed session AND persist it immediately.
+  /// buildDraftSession() clears the durable timer keys, so the draft would
+  /// otherwise live only in memory — a forgotten multi-hour timer would be lost
+  /// if the app were killed before the user got to Review & Save. Auto-stop
+  /// means the user isn't there to review, so we save it (they can still edit or
+  /// delete it from history).
+  Future<void> autoStopAndSave() async {
+    final current = state;
+    if (current is! TimerRunning && current is! TimerPaused) return;
+    final draft = await buildDraftSession();
+    await confirmSession(draft);
+  }
+
+  Future<Session> stopAndSave({bool fromNative = false}) {
+    // Latch check FIRST, before the type guard — ordering is load-bearing.
+    // Checking the guard first would convert the duplicate-save bug into an
+    // uncaught StateError on whichever stop path loses the race.
+    final inFlight = _stopFuture;
+    if (inFlight != null) return inFlight;
+
     final current = state;
     if (current is! TimerRunning && current is! TimerPaused) {
       throw StateError('Cannot stop in state: $current');
     }
 
+    // Synchronously (no await yet): cancel the ticker, leave the stoppable
+    // states, and publish the latch — so any re-entrant stop path joins this
+    // save instead of passing the guard again.
     _ticker?.cancel();
+    state = const TimerIdle();
+    final future = _stopAndSaveImpl(current, fromNative: fromNative);
+    _stopFuture = future;
+    return future;
+  }
+
+  Future<Session> _stopAndSaveImpl(
+    TimerState current, {
+    required bool fromNative,
+  }) async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.remove(_startKey);
     await prefs.remove(_accKey);
@@ -313,7 +362,7 @@ class TimerNotifier extends _$TimerNotifier {
       id: baseId,
       startTime: startTime.millisecondsSinceEpoch,
       endTime: now.millisecondsSinceEpoch,
-      durationSecs: elapsed.inSeconds.clamp(0, 86400),
+      durationSecs: clampSessionDurationSecs(elapsed.inSeconds),
       notes: null,
       dateDay: _dayFmt.format(startTime),
       profileId: effectiveProfileId,
@@ -328,21 +377,31 @@ class TimerNotifier extends _$TimerNotifier {
     if (newBadges.isNotEmpty) {
       ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
     }
-    state = const TimerIdle();
-    _updateHomeWidget(firstSession.dateDay);
+    // state is already TimerIdle — set synchronously in stopAndSave before
+    // the first await, so it must NOT be re-set here (a start() issued while
+    // the save was in flight would be clobbered back to Idle).
+    _updateHomeWidget();
     if (!fromNative) {
       unawaited(dismissTimerNotification(profileId));
     }
     return firstSession;
   }
 
-  Future<void> refreshWidget(String dateDay) => _updateHomeWidget(dateDay);
+  /// Refresh the home widget after [dateDay]'s sessions changed. The widget
+  /// has a single fixed slot — today's total — so the parameter signals
+  /// *that* data changed; it deliberately does NOT select which day is
+  /// rendered (history edits and manual entries pass historical days).
+  Future<void> refreshWidget(String dateDay) => _updateHomeWidget();
 
-  Future<void> _updateHomeWidget(String dateDay) async {
+  Future<void> _updateHomeWidget() async {
     try {
+      // The 'today_hours' slot must only ever represent TODAY. Compute the
+      // key here instead of trusting callers: history/edit/manual-entry and
+      // cross-midnight stops legitimately operate on other days.
+      final today = _dayFmt.format(DateTime.now());
       var secs = await ref
           .read(sessionsRepositoryProvider)
-          .watchSecondsForDay(dateDay)
+          .watchSecondsForDay(today)
           .first;
       // Include active timer elapsed if the timer is running or paused today.
       if (state is TimerRunning) {
