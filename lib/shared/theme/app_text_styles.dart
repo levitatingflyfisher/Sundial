@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTextStyles {
   AppTextStyles._();
 
-  static TextStyle get timerDisplay => GoogleFonts.lora(
+  static TextStyle get timerDisplay => const TextStyle(
+    fontFamily: 'Lora',
     fontSize: 56,
     fontWeight: FontWeight.w700,
     letterSpacing: 1,
   );
 
-  static TextStyle get timerDisplaySmall => GoogleFonts.lora(
+  static TextStyle get timerDisplaySmall => const TextStyle(
+    fontFamily: 'Lora',
     fontSize: 32,
     fontWeight: FontWeight.w700,
     letterSpacing: 1,
   );
 
-  static TextStyle get statValue => GoogleFonts.lora(
+  static TextStyle get statValue => const TextStyle(
+    fontFamily: 'Lora',
     fontSize: 22,
     fontWeight: FontWeight.w700,
   );
 
-  static TextStyle get statLabel => GoogleFonts.nunito(
+  static TextStyle get statLabel => const TextStyle(
+    fontFamily: 'Nunito',
     fontSize: 12,
     fontWeight: FontWeight.w500,
   );

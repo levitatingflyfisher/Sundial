@@ -7,7 +7,6 @@ import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/timer/presentation/timer_screen.dart';
 
-import 'google_fonts_stub.dart';
 import 'visual_golden_helper.dart';
 
 /// Drain Drift-backed StreamBuilders before teardown (same pattern the unit
@@ -19,10 +18,8 @@ Future<void> _tearDown(WidgetTester tester) async {
 
 void main() {
   testWidgets('TimerScreen idle responsive golden sweep', (tester) async {
-    // TimerScreen's AppTextStyles call GoogleFonts.lora/nunito at build time;
-    // resolve those from the SDK Roboto assets so the helper's pumpAndSettle()
-    // doesn't await (and throw on) a network font fetch.
-    stubGoogleFontsWithRoboto(tester);
+    // TimerScreen's AppTextStyles now use BUNDLED font families (no google_fonts,
+    // no network fetch at build time), so no font stub is needed.
 
     // Mirror makeTimerApp() from timer_screen_test.dart exactly: SharedPrefs
     // mock first, then the two core provider overrides. Rendered idle so the
