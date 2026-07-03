@@ -271,6 +271,19 @@ class TimerNotifier extends _$TimerNotifier {
     unawaited(dismissTimerNotification(profileId));
   }
 
+  /// Auto-stop path: build the elapsed session AND persist it immediately.
+  /// buildDraftSession() clears the durable timer keys, so the draft would
+  /// otherwise live only in memory — a forgotten multi-hour timer would be lost
+  /// if the app were killed before the user got to Review & Save. Auto-stop
+  /// means the user isn't there to review, so we save it (they can still edit or
+  /// delete it from history).
+  Future<void> autoStopAndSave() async {
+    final current = state;
+    if (current is! TimerRunning && current is! TimerPaused) return;
+    final draft = await buildDraftSession();
+    await confirmSession(draft);
+  }
+
   Future<Session> stopAndSave({bool fromNative = false}) async {
     final current = state;
     if (current is! TimerRunning && current is! TimerPaused) {
