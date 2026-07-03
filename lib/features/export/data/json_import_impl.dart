@@ -38,34 +38,63 @@ class JsonImporter {
     }).toList();
 
     final sessionsList = (data['sessions'] as List<dynamic>?) ?? const [];
-    final sessions = sessionsList.map<Session>((s) {
-      final m = s as Map<String, dynamic>;
-      return Session(
-        id: m['id'] as String,
-        startTime: m['start_time'] as int,
-        endTime: m['end_time'] as int,
-        durationSecs: m['duration_secs'] as int,
-        dateDay: m['date_day'] as String,
-        profileId: version >= 2 ? m['profile_id'] as String? : null,
-        notes: m['notes'] as String?,
-        locationLabel: null,
-        lat: null,
-        lng: null,
-        createdAt: m['created_at'] as int? ?? now,
-        updatedAt: m['updated_at'] as int? ?? now,
-      );
-    }).toList();
+    final sessions = sessionsList
+        .map((s) => _parseSession(s, now, version))
+        .whereType<Session>()
+        .toList();
 
     final badgesList = (data['badges'] as List<dynamic>?) ?? const [];
     final earnedBadges = <String, int>{
       for (final b in badgesList)
-        (b as Map<String, dynamic>)['id'] as String: b['earned_at'] as int,
+        if (b is Map<String, dynamic> &&
+            b['id'] is String &&
+            b['earned_at'] is int)
+          b['id'] as String: b['earned_at'] as int,
     };
 
     return ImportPayload(
       sessions: sessions,
       profiles: profiles,
       earnedBadges: earnedBadges,
+    );
+  }
+
+  /// Parses one exported session, returning null (skip) when a required field
+  /// is missing/foreign-typed or the capture invariants are violated — so one
+  /// bad or foreign row can't abort the entire import with a raw type error.
+  Session? _parseSession(dynamic raw, int now, int version) {
+    if (raw is! Map<String, dynamic>) return null;
+    final id = raw['id'];
+    final start = raw['start_time'];
+    final end = raw['end_time'];
+    final dur = raw['duration_secs'];
+    final dateDay = raw['date_day'];
+    if (id is! String ||
+        start is! int ||
+        end is! int ||
+        dur is! int ||
+        dateDay is! String ||
+        start > end) {
+      return null;
+    }
+    // Clamp to the capture-path invariant [0, 86400] (a day) so an out-of-range
+    // imported value can't poison stats.
+    final clampedDur = dur < 0 ? 0 : (dur > 86400 ? 86400 : dur);
+    return Session(
+      id: id,
+      startTime: start,
+      endTime: end,
+      durationSecs: clampedDur,
+      dateDay: dateDay,
+      profileId: version >= 2 && raw['profile_id'] is String
+          ? raw['profile_id'] as String
+          : null,
+      notes: raw['notes'] is String ? raw['notes'] as String : null,
+      locationLabel: null,
+      lat: null,
+      lng: null,
+      createdAt: raw['created_at'] is int ? raw['created_at'] as int : now,
+      updatedAt: raw['updated_at'] is int ? raw['updated_at'] as int : now,
     );
   }
 }

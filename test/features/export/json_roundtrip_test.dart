@@ -181,6 +181,38 @@ void main() {
       expect(parsed.earnedBadges, isEmpty);
     });
 
+    test('skips a malformed session row instead of aborting the import', () {
+      // One good row, one missing the required duration_secs. A foreign or
+      // partial export must not abort the whole import with a type error.
+      const payload = '{'
+          '"version":2,'
+          '"sessions":['
+          '{"id":"good","start_time":0,"end_time":3600000,'
+          '"duration_secs":3600,"date_day":"2026-01-15",'
+          '"created_at":0,"updated_at":0},'
+          '{"id":"bad","start_time":0,"end_time":3600000,'
+          '"date_day":"2026-01-16","created_at":0,"updated_at":0}'
+          ']'
+          '}';
+      final parsed = importer.parse(payload);
+      expect(parsed.sessions, hasLength(1),
+          reason: 'the row missing duration_secs must be skipped, not throw');
+      expect(parsed.sessions.single.id, 'good');
+    });
+
+    test('clamps an out-of-range imported duration to [0, 86400]', () {
+      const payload = '{'
+          '"version":2,'
+          '"sessions":['
+          '{"id":"huge","start_time":0,"end_time":90000000,'
+          '"duration_secs":999999,"date_day":"2026-01-15",'
+          '"created_at":0,"updated_at":0}'
+          ']'
+          '}';
+      final parsed = importer.parse(payload);
+      expect(parsed.sessions.single.durationSecs, 86400);
+    });
+
     test('v2 (profiles, no badges) parses cleanly with profile attribution', () {
       const v2 = '{'
           '"version":2,'
