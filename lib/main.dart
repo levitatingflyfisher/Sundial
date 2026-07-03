@@ -108,7 +108,7 @@ class _SundialAppState extends ConsumerState<SundialApp> {
       timerStartMs: startMs,
       thresholdHours: prefs.autoStopThresholdHours,
     )) {
-      await ref.read(timerNotifierProvider.notifier).buildDraftSession();
+      await ref.read(timerNotifierProvider.notifier).autoStopAndSave();
     }
   }
 

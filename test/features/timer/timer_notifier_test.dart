@@ -49,6 +49,27 @@ void main() {
       expect(container.read(timerNotifierProvider), isA<TimerRunning>());
     });
 
+    test('auto-stop persists the elapsed session (not lost on app kill)',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase(NativeDatabase.memory());
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => db),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      await notifier.autoStopAndSave();
+
+      expect(container.read(timerNotifierProvider), isA<TimerIdle>());
+      final rows = await db.select(db.sessions).get();
+      expect(rows, hasLength(1),
+          reason: 'auto-stop must persist the session, not keep it only in memory');
+    });
+
     test('pause transitions running → paused', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
