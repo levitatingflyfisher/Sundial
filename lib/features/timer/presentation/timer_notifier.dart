@@ -1,4 +1,6 @@
 // lib/features/timer/presentation/timer_notifier.dart
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
@@ -250,16 +252,19 @@ class TimerNotifier extends _$TimerNotifier {
     return session;
   }
 
-  Future<void> confirmSession(Session session) async {
+  Future<Either<StorageFailure, Unit>> confirmSession(Session session) async {
     final repo = ref.read(sessionsRepositoryProvider);
     // 'everyone' sessions store profileId=null — counts once in stats, appears
     // in every profile's filtered view via the IS NULL clause in watchAllFiltered.
-    if (session.profileId == kEveryoneProfileId) {
-      final nullSession = session.copyWith(profileId: const Value(null));
-      await repo.saveSession(nullSession);
-    } else {
-      await repo.saveSession(session);
-    }
+    final toSave = session.profileId == kEveryoneProfileId
+        ? session.copyWith(profileId: const Value(null))
+        : session;
+    final result = await repo.saveSession(toSave);
+    // Don't treat a failed write as success: keep the session recoverable
+    // (state stays TimerStopped) so the caller can surface the error and the
+    // user can retry, instead of silently losing a tracked session.
+    if (result.isLeft()) return result;
+
     final newBadges =
         await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
     if (newBadges.isNotEmpty) {
@@ -269,6 +274,7 @@ class TimerNotifier extends _$TimerNotifier {
     state = const TimerIdle();
     _updateHomeWidget(session.dateDay);
     unawaited(dismissTimerNotification(profileId));
+    return result;
   }
 
   /// Auto-stop path: build the elapsed session AND persist it immediately.

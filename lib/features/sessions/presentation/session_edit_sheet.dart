@@ -1,4 +1,6 @@
 // lib/features/sessions/presentation/session_edit_sheet.dart
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
 import 'package:drift/drift.dart' hide Table, Column;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -211,19 +213,32 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
     );
 
     final timerState = ref.read(timerNotifierProvider);
+    final Either<StorageFailure, Unit> result;
     if (timerState is TimerStopped) {
-      await ref.read(timerNotifierProvider.notifier).confirmSession(updated);
+      result =
+          await ref.read(timerNotifierProvider.notifier).confirmSession(updated);
     } else {
-      await ref.read(sessionsRepositoryProvider).saveSession(updated);
-      final newBadges = await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
-      if (newBadges.isNotEmpty) {
-        ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
+      result = await ref.read(sessionsRepositoryProvider).saveSession(updated);
+      if (result.isRight()) {
+        final newBadges =
+            await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
+        if (newBadges.isNotEmpty) {
+          ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
+        }
+        await ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
+        await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
       }
-      await ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
-      await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
     }
 
-    if (context.mounted) context.pop();
+    if (!context.mounted) return;
+    // Don't silently pop on a failed write — surface it and keep the sheet open
+    // so the user can retry instead of losing the session.
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't save the session: ${failure.message}")),
+      ),
+      (_) => context.pop(),
+    );
   }
 }
 

@@ -6,6 +6,19 @@ import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
 import 'package:sundial/features/timer/presentation/timer_notifier.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:sundial/core/error/failures.dart';
+import 'package:sundial/features/sessions/domain/sessions_repository.dart';
+
+/// A sessions repo whose writes always fail — to prove a failed save is
+/// surfaced, not silently treated as success.
+class _FailingSessionsRepo implements SessionsRepository {
+  @override
+  Future<Either<StorageFailure, Unit>> saveSession(Session s) async =>
+      Left(const StorageFailure('disk full'));
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
 
 ProviderContainer makeContainer({Map<String, Object> prefsValues = const {}}) {
   SharedPreferences.setMockInitialValues(prefsValues);
@@ -68,6 +81,32 @@ void main() {
       final rows = await db.select(db.sessions).get();
       expect(rows, hasLength(1),
           reason: 'auto-stop must persist the session, not keep it only in memory');
+    });
+
+    test('confirmSession surfaces a failed write and keeps the session',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider.overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+        sessionsRepositoryProvider.overrideWith((_) => _FailingSessionsRepo()),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      await notifier.buildDraftSession();
+      final stopped = container.read(timerNotifierProvider);
+      expect(stopped, isA<TimerStopped>());
+
+      final result =
+          await notifier.confirmSession((stopped as TimerStopped).session);
+
+      expect(result.isLeft(), isTrue,
+          reason: 'a failed write must surface, not be treated as success');
+      expect(container.read(timerNotifierProvider), isA<TimerStopped>(),
+          reason: 'the session must stay recoverable, not be cleared to Idle');
     });
 
     test('pause transitions running → paused', () async {
