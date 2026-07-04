@@ -68,7 +68,6 @@ migrate_working_dir/
 # Local working artifacts — do not commit
 CLAUDE.md
 GEMINI.md
-AGENTS.md
 docs/superpowers/
 .superpowers/
 /docs/superpowers/
