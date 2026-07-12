@@ -1,9 +1,14 @@
 // lib/main.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sanctuary_auth_core/sanctuary_auth_core.dart';
+import 'package:sanctuary_backup_ui/sanctuary_backup_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/router/app_router.dart';
+import 'package:sundial/features/sanctuary_backup/data/backup_serializer.dart';
 import 'package:sundial/features/timer/data/auto_stop_service.dart';
 import 'package:sundial/features/timer/data/timer_notification_service.dart'
     show initTimerNotifications, mediaSessionChannel;
@@ -19,6 +24,42 @@ void main() async {
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        // Encrypted-backup wiring (sanctuary_backup_ui). Sundial is a NEW
+        // sanctuary app, so it gets its own isolated key material via
+        // appDomain (SANCTUARY-BRIEF §2.1) rather than the legacy
+        // household-wide derivation Lullaby keeps for compatibility.
+        sanctuaryAppDomainProvider.overrideWithValue('sundial'),
+        sanctuaryBackupConfigProvider.overrideWithValue(
+          SanctuaryBackupConfig(
+            appId: 'sundial',
+            aadContext: 'sundial-backup/v1',
+            appDisplayName: 'Sundial',
+            restoreReplaceConsequence:
+                'Restoring will delete all current profiles, sessions, and '
+                'earned badges on this device, then replace them with the '
+                'contents of the backup file.',
+            // Drift's watch streams self-refresh after the destructive
+            // restore, but in-memory selection state and the home-screen
+            // widget can still reference now-wiped rows — reset them.
+            onAfterRestore: (ref) {
+              ref
+                  .read(activeProfileIdProvider.notifier)
+                  .select(kEveryoneProfileId);
+              ref.invalidate(newlyEarnedBadgesProvider);
+              final today = DateTime.now();
+              final todayKey = '${today.year}-'
+                  '${today.month.toString().padLeft(2, '0')}-'
+                  '${today.day.toString().padLeft(2, '0')}';
+              unawaited(ref
+                  .read(timerNotifierProvider.notifier)
+                  .refreshWidget(todayKey));
+            },
+          ),
+        ),
+        backupSerializerProvider.overrideWith(
+          (ref) =>
+              SundialBackupSerializer(ref.watch(appDatabaseProvider)),
+        ),
       ],
       child: const SundialApp(),
     ),
