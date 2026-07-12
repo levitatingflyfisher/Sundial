@@ -378,7 +378,8 @@ class _EncryptedBackupSection extends ConsumerWidget {
           title: const Text('Encrypted backup (.ohbk)'),
           subtitle: authState.lastBackupAt != null
               ? Text('Last backup: ${_formatDate(authState.lastBackupAt!)}')
-              : const Text('Save an encrypted copy of all your data'),
+              : const Text(
+                  'Save an encrypted copy of your sessions, profiles, and badges'),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
