@@ -14,6 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: Sundial
+
+      - name: Clone the sibling sanctuary packages
+        # Sundial depends on these by sibling path (../packages/... relative
+        # to the Sundial checkout above), matching the local monorepo layout.
+        # They are published as their own public repos; clone them where
+        # pubspec.yaml expects. sanctuary_backup_ui itself depends on
+        # sanctuary_auth_core by the same sibling path, so both must sit
+        # under packages/ (SANCTUARY-BRIEF §3, §4.W2).
+        run: |
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryAuthCore packages/sanctuary_auth_core
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryBackupUi packages/sanctuary_backup_ui
 
       - uses: actions/setup-java@v4
         with:
@@ -22,17 +35,23 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.x'
+          # Must bundle Dart >= 3.10.7 to satisfy sanctuary_auth_core/
+          # sanctuary_backup_ui's pubspec `environment: sdk`. 3.29.x shipped
+          # an older Dart and fails version resolution.
+          flutter-version: '3.44.2'
           channel: stable
           cache: true
 
       - name: Install dependencies
+        working-directory: Sundial
         run: flutter pub get
 
       - name: Generate code
+        working-directory: Sundial
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Run tests
+        working-directory: Sundial
         run: flutter test test/
 
   build-and-release:
@@ -41,6 +60,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: Sundial
+
+      - name: Clone the sibling sanctuary packages
+        run: |
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryAuthCore packages/sanctuary_auth_core
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryBackupUi packages/sanctuary_backup_ui
 
       - uses: actions/setup-java@v4
         with:
@@ -49,24 +75,28 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.x'
+          flutter-version: '3.44.2'
           channel: stable
           cache: true
 
       - name: Install dependencies
+        working-directory: Sundial
         run: flutter pub get
 
       - name: Generate code
+        working-directory: Sundial
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build split APKs (for direct download)
+        working-directory: Sundial
         run: flutter build apk --split-per-abi --release
 
       - name: Build AAB (for Google Play)
+        working-directory: Sundial
         run: flutter build appbundle --release
 
       - name: Generate SHA256 checksums
-        working-directory: build/app/outputs/flutter-apk
+        working-directory: Sundial/build/app/outputs/flutter-apk
         run: |
           for f in *.apk; do
             sha256sum "$f" > "${f}.sha256"
@@ -76,8 +106,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/flutter-apk/*.sha256
-            build/app/outputs/bundle/release/*.aab
+            Sundial/build/app/outputs/flutter-apk/*.apk
+            Sundial/build/app/outputs/flutter-apk/*.sha256
+            Sundial/build/app/outputs/bundle/release/*.aab
           generate_release_notes: true
           draft: true
