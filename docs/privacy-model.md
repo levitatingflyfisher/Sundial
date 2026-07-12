@@ -15,11 +15,32 @@ The only data movement is **user-initiated and local**:
 
 | Action | What moves | Where |
 |---|---|---|
-| Export (JSON / PDF / text) | Your data | To a file *you* choose (and then wherever you send it) |
-| Import (JSON) | Your data | From a file *you* pick, into the local database |
+| Export (JSON / PDF / text) | Your data, **plaintext** | To a file *you* choose (and then wherever you send it) |
+| Encrypted backup (`.ohbk`) | Your data, **encrypted** under a key derived from a recovery phrase only you hold | To a file *you* choose or share — see below |
+| Import (JSON / `.ohbk`) | Your data | From a file *you* pick, into the local database |
 | Android widget / notification | Timer state | Between the app and the OS, on-device only |
 
 Exports go exactly where you send them — the app does not upload them anywhere.
+
+### Encrypted backup (`.ohbk`)
+
+The encrypted-backup option wraps the same JSON export above in a ChaCha20-Poly1305
+envelope, keyed from a 12-word BIP39 recovery phrase generated on-device — see
+[ADR-0007](adr/0007-encrypted-backup-seed-phrase.md) and the
+[data-model reference](reference/data-model.md#encrypted-backup-ohbk-envelope). The
+phrase is the only key: **there is no server-side copy and no reset email** — losing
+the phrase means losing the ability to decrypt that backup. This is the same
+trade-off local-first apps make everywhere (device loss without a backup already
+loses the data); the encrypted option just makes a *carried* backup as private as
+the on-device one.
+
+The crypto lives in a **separate, shared package** (`sanctuary_auth_core`, consumed
+as a sibling path dependency — see the [README](../README.md#quickstart)), not
+hand-rolled in this app. That package also ships an HTTP client and a Sync-tier
+client for a *different*, cloud-relay feature — Sundial does not call either; only
+the local Ghost-tier seed/encrypt/decrypt primitives are wired up here. If you `grep`
+`pubspec.lock` you will find `http` as a transitive dependency for that reason; `grep
+lib/` for a network client (below) will not.
 
 ## No fonts fetched, either
 

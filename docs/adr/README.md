@@ -18,6 +18,7 @@ whether you're fixing a mistake or unknowingly reopening a settled trade-off.
 | [0004](0004-local-first-ghost-tier.md) | Local-first, Ghost tier default, no account | Accepted |
 | [0005](0005-forgiveness-over-prevention.md) | Forgiveness over prevention (editable sessions, opt-in auto-stop) | Accepted |
 | [0006](0006-focus-mode-as-surface.md) | Focus mode is a UI surface over shared data | Accepted |
+| [0007](0007-encrypted-backup-seed-phrase.md) | Encrypted backup via a seed phrase; wraps the existing JSON export | Accepted |
 
 ## Writing a new one
 

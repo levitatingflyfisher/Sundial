@@ -120,3 +120,24 @@ Current `version`: **3**.
   restore cleanly on newer installs and vice-versa.
 - Import (`json_import_impl.dart`) is **row-tolerant**: one malformed session is
   skipped rather than aborting the whole import.
+
+## Encrypted backup (`.ohbk`) envelope
+
+`SundialBackupSerializer` (`lib/features/sanctuary_backup/data/backup_serializer.dart`)
+wraps the exact JSON above — it does not invent a second format. Before
+encryption, the plaintext handed to `sanctuary_auth_core`'s `GhostBackup.export`
+looks like:
+
+```jsonc
+{
+  "app": "sundial",
+  "schemaVersion": 3,        // AppDatabase.schemaVersion at export time
+  "payload": { /* the Export JSON format above, verbatim */ }
+}
+```
+
+`restoreAll` rejects the envelope (throwing before touching the database) when
+`app` isn't `"sundial"` or `schemaVersion` is newer than the running app
+understands — see [ADR-0007](../adr/0007-encrypted-backup-seed-phrase.md). See
+[docs/privacy-model.md](../privacy-model.md) for the recovery-phrase honesty
+copy convention (no server-side escrow; a lost phrase means a lost backup).

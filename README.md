@@ -31,7 +31,20 @@ are designed but not yet built — see [docs/limitations.md](docs/limitations.md
 
 ## Quickstart
 
+Sundial's encrypted backup (.ohbk) is built on two shared packages consumed by
+**sibling path dependency** (`../packages/...`, the same convention as
+`eloEngine`). Clone them next to Sundial so the paths resolve:
+
+```
+packages/
+  sanctuary_auth_core/     # github: levitatingflyfisher/sanctuaryAuthCore
+  sanctuary_backup_ui/     # github: levitatingflyfisher/sanctuaryBackupUi
+Sundial/                   # this repo
+```
+
 ```bash
+git clone https://github.com/levitatingflyfisher/sanctuaryAuthCore packages/sanctuary_auth_core
+git clone https://github.com/levitatingflyfisher/sanctuaryBackupUi packages/sanctuary_backup_ui
 git clone https://github.com/levitatingflyfisher/Sundial.git
 cd Sundial
 flutter pub get
