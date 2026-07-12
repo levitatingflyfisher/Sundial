@@ -209,5 +209,81 @@ void main() {
       expect(tester.takeException(), isNull,
           reason: 'no RenderFlex overflow at narrow width + large text scale');
     });
+
+    // F11's calm-error-message mapping is unit-tested directly against
+    // backupSaveErrorMessage in backup_save_error_message_test.dart — a
+    // widget-level tap-through-to-failure test here is flaky by
+    // construction (it depends on path_provider's unmocked MethodChannel
+    // behaviour under the test binding's fake-async pump loop, which does
+    // not reliably surface a MissingPluginException on the timeline a
+    // finite number of `pump()` calls can observe).
+
+    testWidgets(
+        'no overflow at 320dp x textScale 3.0 with the seed-phrase setup '
+        'sheet OPEN (the opened-dialog case, not just the closed screen)',
+        (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(320, 800);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final store = InMemorySecureKeyStore();
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appDatabaseProvider
+                .overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            secureKeyStoreProvider.overrideWithValue(store),
+            cryptoServiceProvider.overrideWithValue(FakeCryptoService()),
+            sanctuaryAppDomainProvider.overrideWithValue('sundial'),
+            sanctuaryBackupConfigProvider.overrideWithValue(
+              const SanctuaryBackupConfig(
+                appId: 'sundial',
+                aadContext: 'sundial-backup/v1',
+                appDisplayName: 'Sundial',
+              ),
+            ),
+            backupSerializerProvider.overrideWithValue(FakeBackupSerializer()),
+          ],
+          // A minimal harness rather than the full ExportScreen: this
+          // exercises the exact same BackupFlow.runSeedSetup call Sundial's
+          // "Set up encrypted backup" tile makes, without the unrelated
+          // fragility of scrolling a lazy ListView to reach a below-the-fold
+          // tile at 3.0x text scale.
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3.0)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Consumer(
+                  builder: (context, ref, _) => ElevatedButton(
+                    onPressed: () =>
+                        const BackupFlow().runSeedSetup(context, ref),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsOneWidget,
+          reason: 'the seed-phrase modal should be open for this assertion '
+              'to actually exercise the opened-dialog case');
+      expect(tester.takeException(), isNull,
+          reason: 'no RenderFlex overflow with the seed-phrase sheet open '
+              'at narrow width + large text scale');
+    });
   });
 }

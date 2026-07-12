@@ -8,6 +8,7 @@ import 'package:sanctuary_auth_core/sanctuary_auth_core.dart';
 import 'package:sanctuary_backup_ui/sanctuary_backup_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sundial/core/providers/core_providers.dart';
+import 'package:sundial/features/export/data/backup_file_save.dart';
 import 'package:sundial/features/export/data/json_export_impl.dart';
 import 'package:sundial/features/export/data/json_import_impl.dart';
 import 'package:sundial/features/export/data/pdf_export_impl.dart';
@@ -231,115 +232,14 @@ class ExportScreen extends ConsumerWidget {
 
   // ── Encrypted restore (.ohbk) ───────────────────────────────────────
   //
-  // Mirrors sanctuary_backup_ui's BackupSettingsSection._restoreBackup so
-  // the state machine (existing key → confirm → restore, fall back to a
-  // manually entered phrase on a mismatch; no key yet → phrase first) isn't
-  // reinvented — only the presentation (Sundial's own tiles/icons instead of
-  // a generic settings section) is app-specific, per SANCTUARY-BRIEF §4.W2.
-
-  Future<void> _restoreEncrypted(BuildContext context, WidgetRef ref) async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      withData: true,
-    );
-    if (picked == null ||
-        picked.files.isEmpty ||
-        picked.files.first.bytes == null) {
-      return;
-    }
-    final blob = picked.files.first.bytes!;
-    if (!context.mounted) return;
-
-    final authState = await ref.read(authNotifierProvider.future);
-    if (!context.mounted) return;
-    final hasKey = authState.masterEncryptionKey != null;
-    final controller = ref.read(backupControllerProvider.notifier);
-    final config = ref.read(sanctuaryBackupConfigProvider);
-
-    RestoreOutcome outcome;
-    if (hasKey) {
-      final confirm = await _confirmDestructiveRestore(context, config);
-      if (!confirm || !context.mounted) return;
-      outcome = await controller.restoreFromBlob(blob);
-
-      // This device's key didn't unlock the backup (made under a different
-      // phrase) — offer to enter the words it was created with.
-      if (outcome == RestoreOutcome.wrongPhrase && context.mounted) {
-        final phrase = await PhraseEntryDialog.show(
-          context,
-          title: "Enter the backup's recovery words",
-          body:
-              'This backup was made with a different set of words than this '
-              'device has. Enter the 12 words from when it was created.',
-        );
-        if (phrase == null || !context.mounted) return;
-        outcome = await controller.restoreWithPhrase(blob, phrase);
-      }
-    } else {
-      final phrase = await PhraseEntryDialog.show(context);
-      if (phrase == null || !context.mounted) return;
-      final confirm = await _confirmDestructiveRestore(context, config);
-      if (!confirm || !context.mounted) return;
-      outcome = await controller.restoreWithPhrase(blob, phrase);
-    }
-
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_restoreOutcomeMessage(outcome, config))),
-    );
-  }
+  // Delegates the whole file-pick → destructive-confirm → wrong-phrase
+  // fallback → outcome-message flow to sanctuary_backup_ui's [BackupFlow]
+  // rather than re-copying that ~50-line state machine here — only the
+  // presentation (Sundial's own tiles/icons instead of a generic settings
+  // section) is app-specific, per SANCTUARY-BRIEF §4.W2.
+  Future<void> _restoreEncrypted(BuildContext context, WidgetRef ref) =>
+      const BackupFlow().runRestore(context, ref);
 }
-
-/// States the destructive-replace consequence plainly (SANCTUARY-BRIEF §2.5)
-/// before wiping local data for either restore path.
-Future<bool> _confirmDestructiveRestore(
-  BuildContext context,
-  SanctuaryBackupConfig config,
-) async {
-  final consequence = config.restoreReplaceConsequence ??
-      'Restoring will permanently delete all current '
-          '${config.appDisplayName} data on this device and replace it with '
-          'the contents of the backup file.';
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      scrollable: true,
-      title: const Text('Replace all data?'),
-      content: Text('$consequence\n\nThis cannot be undone.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Replace everything'),
-        ),
-      ],
-    ),
-  );
-  return result == true;
-}
-
-String _restoreOutcomeMessage(
-        RestoreOutcome outcome, SanctuaryBackupConfig config) =>
-    switch (outcome) {
-      RestoreOutcome.success => 'Data restored successfully.',
-      RestoreOutcome.wrongPhrase =>
-        "Those words didn't unlock this backup. Try the words from when it "
-            'was made.',
-      RestoreOutcome.corruptFile =>
-        "This file looks damaged or isn't a ${config.appDisplayName} backup.",
-      RestoreOutcome.tooNewBackup =>
-        'This backup was made by a newer version of ${config.appDisplayName}. '
-            'Update the app, then restore.',
-      RestoreOutcome.noKey =>
-        'Set up encrypted backup first, or enter your recovery words.',
-      RestoreOutcome.failed => 'Restore failed. Please try again.',
-    };
 
 // ── Encrypted backup (.ohbk) section — setup card + export tile ────────
 //
@@ -394,15 +294,21 @@ class _EncryptedBackupSection extends ConsumerWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                icon: const Icon(LucideIcons.download, size: 20),
-                tooltip: 'Save to device',
-                onPressed: () => _export(context, ref, share: false),
-              ),
+              // F15: dart:io file writes aren't available on web — hide
+              // Save there rather than offer an affordance that always
+              // fails; Share (bytes-only, web-safe) remains available.
+              if (backupSaveToDeviceSupported)
+                IconButton(
+                  icon: const Icon(LucideIcons.download, size: 20),
+                  tooltip: 'Save to device',
+                  onPressed: () => _saveToDevice(context, ref),
+                ),
               IconButton(
                 icon: const Icon(LucideIcons.share2, size: 20),
                 tooltip: 'Share',
-                onPressed: () => _export(context, ref, share: true),
+                // Share goes through BackupFlow's tested export orchestration
+                // verbatim — only the "Save to device" branch is app-specific.
+                onPressed: () => const BackupFlow().runExport(context, ref),
               ),
             ],
           ),
@@ -411,79 +317,34 @@ class _EncryptedBackupSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _setup(BuildContext context, WidgetRef ref) async {
-    final phrase =
-        await ref.read(backupControllerProvider.notifier).generateSeedPhrase();
-    if (phrase == null || !context.mounted) return;
+  // Both the seed-generate/show/re-entry-confirm flow and the wrong-words
+  // retry loop are BackupFlow's tested orchestration verbatim — only the
+  // trigger (Sundial's own ListTiles, not BackupSettingsSection) is
+  // app-specific, per SANCTUARY-BRIEF §4.W2.
+  Future<void> _setup(BuildContext context, WidgetRef ref) =>
+      const BackupFlow().runSeedSetup(context, ref);
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      // The recovery words must be acknowledged via the button, not
-      // barrier-dismissed or swiped away.
-      isDismissible: false,
-      enableDrag: false,
-      builder: (_) => SeedPhraseModal(phrase: phrase, onAcknowledged: () {}),
-    );
+  Future<void> _confirmReEntry(BuildContext context, WidgetRef ref) =>
+      const BackupFlow().confirmPhraseReEntry(context, ref);
 
-    if (!context.mounted) return;
-    await _confirmReEntry(context, ref);
-  }
-
-  Future<void> _confirmReEntry(BuildContext context, WidgetRef ref) async {
-    while (context.mounted) {
-      final reEntry = await PhraseEntryDialog.show(
-        context,
-        title: 'Re-enter your recovery words',
-        body: 'Type the 12 words you just wrote down. This proves your '
-            'paper copy is correct — without it, a typo could cost you all '
-            'your data later.',
-        confirmLabel: 'Confirm',
-      );
-      if (reEntry == null || !context.mounted) return;
-
-      final ok = await ref
-          .read(backupControllerProvider.notifier)
-          .confirmSeedAcknowledged(reEntry);
-      if (!context.mounted) return;
-      if (ok) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              "Words didn't match. Check your paper copy and try again."),
-        ),
-      );
-    }
-  }
-
-  Future<void> _export(BuildContext context, WidgetRef ref,
-      {required bool share}) async {
+  // F15: the on-device write is confined to the io/web split
+  // (backup_file_save.dart) so an unconditional dart:io File write is never
+  // reachable on the web target — the Save icon is hidden there instead
+  // (see `backupSaveToDeviceSupported` in build() above). Not part of
+  // BackupFlow (which is Share-only, by design, to stay web-safe), so this
+  // one branch stays app-specific.
+  Future<void> _saveToDevice(BuildContext context, WidgetRef ref) async {
     final result =
         await ref.read(backupControllerProvider.notifier).exportBackup();
     if (result == null || !context.mounted) return;
 
-    if (share) {
-      // Bytes-only share so the web build stays clean (no dart:io File).
-      await Share.shareXFiles([
-        XFile.fromData(result.bytes,
-            mimeType: 'application/octet-stream', name: result.filename),
-      ]);
-      return;
-    }
-
     try {
-      Directory? dir;
-      try {
-        dir = await getExternalStorageDirectory();
-      } catch (_) {}
-      dir ??= await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/${result.filename}');
-      await file.writeAsBytes(result.bytes);
+      final path =
+          await saveBackupBytesToDevice(result.bytes, result.filename);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Saved to ${file.path}'),
+            content: Text('Saved to $path'),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -491,7 +352,7 @@ class _EncryptedBackupSection extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text(backupSaveErrorMessage(e))),
         );
       }
     }
@@ -502,6 +363,23 @@ class _EncryptedBackupSection extends ConsumerWidget {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-'
         '${d.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// Maps a "Save to device" failure for the encrypted backup to calm,
+/// specific copy — never the raw exception text (F11). Mirrors the
+/// RestoreOutcome-mapped-message convention used elsewhere on this screen
+/// rather than interpolating `$e` (which can leak a filesystem path or a
+/// raw platform-exception message into the SnackBar).
+@visibleForTesting
+String backupSaveErrorMessage(Object error) {
+  final text = error.toString();
+  if (text.contains('Permission') || text.contains('permission')) {
+    return "Couldn't save — storage permission was denied. Try Share instead.";
+  }
+  if (text.contains('MissingPluginException')) {
+    return "Saving to device isn't available here. Try Share instead.";
+  }
+  return "Couldn't save the backup to this device. Try Share instead.";
 }
 
 // ── Export tile with Save + Share buttons ──────────────────────────
