@@ -199,6 +199,14 @@ class ExportScreen extends ConsumerWidget {
             .read(badgesRepositoryProvider)
             .restoreEarnedBadges(payload.earnedBadges);
       }
+      // F10: the same annual-goal drop as the encrypted-backup restore path
+      // — a plain JSON backup carries the goal too, and it must be applied
+      // rather than silently discarded.
+      if (payload.annualGoalHours != null) {
+        await ref
+            .read(settingsRepositoryProvider)
+            .setAnnualGoalHours(payload.annualGoalHours!);
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

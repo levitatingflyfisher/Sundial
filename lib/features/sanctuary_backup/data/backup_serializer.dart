@@ -109,6 +109,16 @@ class SundialBackupSerializer implements BackupSerializer {
         await (_db.update(_db.badges)..where((t) => t.id.equals(entry.key)))
             .write(BadgesCompanion(earnedAt: Value(entry.value)));
       }
+
+      // F10: the annual goal is the single most important setting in a
+      // yearly-goal tracker — a destructive restore must bring it back too,
+      // not silently fall through to LocalSettingsRepository's 1000h
+      // default. Only write it when the backup actually carries one (older
+      // backups predate this field and shouldn't clobber the current goal).
+      if (payload.annualGoalHours != null) {
+        await LocalSettingsRepository(_db)
+            .setAnnualGoalHours(payload.annualGoalHours!);
+      }
     });
   }
 }

@@ -8,12 +8,19 @@ class ImportPayload {
     required this.sessions,
     required this.profiles,
     required this.earnedBadges,
+    this.annualGoalHours,
   });
   final List<Session> sessions;
   final List<ProfilesCompanion> profiles;
 
   /// Earned badge ids → earned-at millis. Only populated for v3+ backups.
   final Map<String, int> earnedBadges;
+
+  /// The backed-up annual goal, in hours. Null when the source JSON has no
+  /// (or a malformed) `annual_goal_hours` field — e.g. a pre-F10 backup —
+  /// so callers can leave the on-device goal untouched instead of clobbering
+  /// it with a wrong default (F10).
+  final int? annualGoalHours;
 }
 
 class JsonImporter {
@@ -52,10 +59,13 @@ class JsonImporter {
           b['id'] as String: b['earned_at'] as int,
     };
 
+    final goal = data['annual_goal_hours'];
+
     return ImportPayload(
       sessions: sessions,
       profiles: profiles,
       earnedBadges: earnedBadges,
+      annualGoalHours: goal is int ? goal : null,
     );
   }
 

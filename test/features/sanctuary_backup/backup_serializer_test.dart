@@ -25,6 +25,7 @@ import 'package:sundial/features/badges/data/badges_dao.dart';
 import 'package:sundial/features/badges/data/local_badges_repository.dart';
 import 'package:sundial/features/sanctuary_backup/data/backup_serializer.dart';
 import 'package:sundial/features/sessions/data/sessions_dao.dart';
+import 'package:sundial/features/settings/data/local_settings_repository.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -135,6 +136,21 @@ void main() {
           reason: 'session added after the dump must be wiped by restore');
       expect(sessions.any((s) => s.id == 's1'), isTrue,
           reason: 'session present in the backup must be restored');
+    });
+
+    test('restores the annual goal (F10 — the single most important setting)',
+        () async {
+      await LocalSettingsRepository(db).setAnnualGoalHours(500);
+      final bytes = await serializer.dumpAll();
+
+      // Change the goal AFTER the dump — restore must bring back 500, not
+      // silently keep (or default to) whatever is on-device now.
+      await LocalSettingsRepository(db).setAnnualGoalHours(9999);
+
+      await serializer.restoreAll(bytes);
+
+      final prefs = await LocalSettingsRepository(db).getUserPrefs();
+      expect(prefs.annualGoalHours, 500);
     });
 
     test(
