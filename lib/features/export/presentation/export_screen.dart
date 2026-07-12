@@ -41,10 +41,13 @@ class ExportScreen extends ConsumerWidget {
           ),
           const Divider(height: AppSpacing.xl),
           // ── Export ──────────────────────────────────────────────────
+          // F14: labelled "unencrypted" now that the encrypted backup
+          // section below offers a protected alternative — the security
+          // distinction was previously stated on only one side.
           _ExportTile(
             icon: LucideIcons.fileText,
             title: 'Plaintext (.sundial)',
-            subtitle: 'Human-readable summary (export only)',
+            subtitle: 'Unencrypted, human-readable summary (export only)',
             onSave: () => _buildPlaintext(ref).then(
               (r) => _saveLocally(context, r.$1, r.$2),
             ),
@@ -55,7 +58,7 @@ class ExportScreen extends ConsumerWidget {
           _ExportTile(
             icon: LucideIcons.braces,
             title: 'JSON',
-            subtitle: 'Machine-readable backup',
+            subtitle: 'Unencrypted, machine-readable backup',
             onSave: () => _buildJson(ref).then(
               (r) => _saveLocally(context, r.$1, r.$2),
             ),
@@ -66,7 +69,7 @@ class ExportScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(LucideIcons.file),
             title: const Text('PDF'),
-            subtitle: const Text('Printable summary'),
+            subtitle: const Text('Unencrypted, printable summary'),
             trailing: IconButton(
               icon: const Icon(LucideIcons.share2),
               tooltip: 'Share',

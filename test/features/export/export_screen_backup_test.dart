@@ -87,6 +87,39 @@ void main() {
       expect(find.text('Import from JSON'), findsOneWidget);
     });
 
+    testWidgets(
+        'F14: Plaintext/JSON/PDF subtitles are honestly labelled unencrypted '
+        'now that an encrypted option exists on the same screen',
+        (tester) async {
+      final store = InMemorySecureKeyStore();
+      await tester.pumpWidget(await _makeScreen(store: store));
+      await tester.pumpAndSettle();
+
+      final plaintextTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Plaintext (.sundial)'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      final jsonTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('JSON'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      final pdfTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('PDF'),
+          matching: find.byType(ListTile),
+        ),
+      );
+
+      String subtitleOf(ListTile t) => (t.subtitle as Text).data!;
+      expect(subtitleOf(plaintextTile).toLowerCase(), contains('unencrypted'));
+      expect(subtitleOf(jsonTile).toLowerCase(), contains('unencrypted'));
+      expect(subtitleOf(pdfTile).toLowerCase(), contains('unencrypted'));
+    });
+
     testWidgets('no overflow at 320dp x textScale 3.0 (no key yet)',
         (tester) async {
       tester.view.devicePixelRatio = 1.0;
