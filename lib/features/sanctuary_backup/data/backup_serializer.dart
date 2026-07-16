@@ -18,7 +18,8 @@ import 'package:sundial/features/settings/data/local_settings_repository.dart';
 /// version, before the payload is ever handed to the importer — defense in
 /// depth behind the AEAD context that already scopes the encrypted blob to
 /// this app (SANCTUARY-BRIEF §2.3, §2.8, §4.W2).
-class SundialBackupSerializer implements BackupSerializer {
+class SundialBackupSerializer
+    implements BackupSerializer, PreviewableBackupSerializer {
   final AppDatabase _db;
 
   const SundialBackupSerializer(this._db);
@@ -39,17 +40,34 @@ class SundialBackupSerializer implements BackupSerializer {
       badges: badges,
     );
 
-    final envelope = <String, dynamic>{
-      'app': _appId,
-      // Reuses the running database's own schema version rather than a
-      // second parallel counter — a future migration that bumps
-      // AppDatabase.schemaVersion automatically makes older-app restores
-      // fail closed on newer backups (SANCTUARY-BRIEF §2.8).
-      'schemaVersion': _db.schemaVersion,
-      'payload': jsonDecode(inner),
-    };
-    return Uint8List.fromList(utf8.encode(jsonEncode(envelope)));
+    // The shared fleet envelope (BACKUP_RETENTION_SPEC §2.F). Reuses the
+    // running database's own schema version rather than a second parallel
+    // counter — a future migration that bumps AppDatabase.schemaVersion
+    // automatically makes older-app restores fail closed on newer backups
+    // (SANCTUARY-BRIEF §2.8). createdAt feeds preview/staleness copy.
+    return BackupEnvelope.wrap(
+      appId: _appId,
+      schemaVersion: _db.schemaVersion,
+      createdAt: DateTime.now(),
+      payload: jsonDecode(inner) as Map<String, Object?>,
+    );
   }
+
+  /// The dry-run parse behind preview-before-restore and export
+  /// verify-by-read-back: validates exactly like [restoreAll] (wrong app,
+  /// future schema, malformed payload) and reports row counts — but never
+  /// writes.
+  @override
+  Future<BackupManifest> describeBackup(Uint8List plaintext) async {
+    _unwrap(plaintext); // throws what restoreAll would
+    return BackupEnvelope.describe(plaintext);
+  }
+
+  UnwrappedBackup _unwrap(Uint8List data) => BackupEnvelope.unwrap(
+        data,
+        expectedAppId: _appId,
+        currentSchemaVersion: _db.schemaVersion,
+      );
 
   /// Restores all user data from an OHBK envelope previously produced by
   /// [dumpAll].
@@ -64,23 +82,9 @@ class SundialBackupSerializer implements BackupSerializer {
   /// this app understands.
   @override
   Future<void> restoreAll(Uint8List data) async {
-    final envelope = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
-
-    final app = envelope['app'] as String?;
-    if (app != _appId) {
-      throw FormatException("Not a Sundial backup (app='${app ?? 'missing'}')");
-    }
-
-    final version = envelope['schemaVersion'] as int?;
-    if (version == null) {
-      throw const FormatException('Missing schemaVersion in backup payload');
-    }
-    if (version > _db.schemaVersion) {
-      throw BackupSchemaException(version, _db.schemaVersion);
-    }
-
-    final payloadJson = envelope['payload'];
-    if (payloadJson is! Map<String, dynamic>) {
+    final unwrapped = _unwrap(data);
+    final payloadJson = unwrapped.payload;
+    if (payloadJson.isEmpty || payloadJson['profiles'] is! List) {
       throw const FormatException('Missing payload in backup file');
     }
 

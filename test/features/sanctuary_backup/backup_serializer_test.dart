@@ -65,6 +65,63 @@ void main() {
           );
 
   group('dumpAll', () {
+    test('envelope carries a UTC createdAt stamp (v2 retention spec)',
+        () async {
+      final bytes = await serializer.dumpAll();
+      final envelope = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+      final createdAt = DateTime.parse(envelope['createdAt'] as String);
+      expect(createdAt.isUtc, isTrue);
+      expect(DateTime.now().toUtc().difference(createdAt).inMinutes,
+          lessThan(5));
+    });
+
+    test(
+        'describeBackup (PreviewableBackupSerializer) dry-run parses: counts '
+        'rows, rejects wrong app + future schema, never writes', () async {
+      await seedProfile('p1', 'Alice');
+      await seedSession('s1', profileId: 'p1');
+      await seedSession('s2', profileId: 'p1');
+      final bytes = await serializer.dumpAll();
+
+      expect(serializer, isA<PreviewableBackupSerializer>());
+      final manifest = await serializer.describeBackup(bytes);
+      expect(manifest.appId, 'sundial');
+      expect(manifest.tableCounts['sessions'], 2);
+      // Alice + the seeded default Everyone profile.
+      expect(manifest.tableCounts['profiles'], 2);
+      expect(manifest.createdAt, isNotNull);
+
+      // Wrong app + future schema reject exactly like restoreAll would.
+      final wrongApp = Uint8List.fromList(utf8.encode(jsonEncode(
+          {'app': 'furrow', 'schemaVersion': 1, 'payload': <String, Object?>{}})));
+      expect(() => serializer.describeBackup(wrongApp),
+          throwsA(isA<FormatException>()));
+      final tooNew = Uint8List.fromList(utf8.encode(jsonEncode({
+        'app': 'sundial',
+        'schemaVersion': 99,
+        'payload': <String, Object?>{}
+      })));
+      expect(() => serializer.describeBackup(tooNew),
+          throwsA(isA<BackupSchemaException>()));
+
+      // Dry-run guarantee: nothing was written by any of the above.
+      expect(await db.select(db.sessions).get(), hasLength(2));
+    });
+
+    test('a LEGACY envelope without createdAt still restores', () async {
+      await seedProfile('p1', 'Alice');
+      await seedSession('s1', profileId: 'p1');
+      final bytes = await serializer.dumpAll();
+      final envelope = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+      envelope.remove('createdAt'); // what pre-v2 Sundial builds wrote
+      final legacy = Uint8List.fromList(utf8.encode(jsonEncode(envelope)));
+
+      await db.delete(db.sessions).go();
+      await db.delete(db.profiles).go();
+      await serializer.restoreAll(legacy);
+      expect(await db.select(db.sessions).get(), hasLength(1));
+    });
+
     test('envelope carries app id and the DB schema version', () async {
       final bytes = await serializer.dumpAll();
       final envelope = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
