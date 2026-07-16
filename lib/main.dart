@@ -88,6 +88,12 @@ class _SundialAppState extends ConsumerState<SundialApp> {
     // Attach the lifecycle observer that clears the widget-launch override on
     // app pause. Reading the provider has a side-effect registration.
     ref.read(widgetLaunchLifecycleObserverProvider);
+    // Silent freshness snapshot (BACKUP_RETENTION_SPEC §3): if the newest
+    // vault snapshot is >7 days old and a key exists, take one. Post-frame
+    // + fire-and-forget — never blocks boot, never surfaces errors.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(backupControllerProvider.notifier).runStartupMaintenance();
+    });
     // Listen for host → Dart "launchSource" calls from MainActivity.kt. When
     // the user taps the home-screen widget, flip into the transient Flow
     // override so AppShell renders FlowScreen regardless of the durable

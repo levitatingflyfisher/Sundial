@@ -258,33 +258,48 @@ class _EncryptedBackupSection extends ConsumerWidget {
     return authAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
-      data: (authState) {
-        final hasKey = authState.masterEncryptionKey != null;
-        final seedAcked = authState.seedAcknowledged;
+      data: (authState) => Column(children: [
+        _stateTile(context, ref, authState),
+        // The snapshot vault (BACKUP_RETENTION_SPEC §2.A) — reachable in
+        // every auth state: exports and restores populate it regardless.
+        ListTile(
+          leading: const Icon(LucideIcons.history),
+          title: const Text('Previous backups'),
+          subtitle:
+              const Text('Snapshots kept on this device — restore or pin'),
+          trailing: const Icon(LucideIcons.chevronRight),
+          onTap: () => showBackupVaultSheet(context),
+        ),
+      ]),
+    );
+  }
 
-        if (!hasKey) {
-          return ListTile(
-            leading: const Icon(LucideIcons.keyRound),
-            title: const Text('Set up encrypted backup'),
-            subtitle:
-                const Text('Generate 12 recovery words to encrypt your backup'),
-            trailing: const Icon(LucideIcons.chevronRight),
-            onTap: () => _setup(context, ref),
-          );
-        }
+  Widget _stateTile(BuildContext context, WidgetRef ref, AuthState authState) {
+    final hasKey = authState.masterEncryptionKey != null;
+    final seedAcked = authState.seedAcknowledged;
 
-        if (!seedAcked) {
-          return ListTile(
-            leading: const Icon(LucideIcons.penLine),
-            title: const Text('Complete backup setup'),
-            subtitle:
-                const Text('Re-enter your recovery words to finish setup'),
-            trailing: const Icon(LucideIcons.chevronRight),
-            onTap: () => _confirmReEntry(context, ref),
-          );
-        }
+    if (!hasKey) {
+      return ListTile(
+        leading: const Icon(LucideIcons.keyRound),
+        title: const Text('Set up encrypted backup'),
+        subtitle:
+            const Text('Generate 12 recovery words to encrypt your backup'),
+        trailing: const Icon(LucideIcons.chevronRight),
+        onTap: () => _setup(context, ref),
+      );
+    }
 
-        return ListTile(
+    if (!seedAcked) {
+      return ListTile(
+        leading: const Icon(LucideIcons.penLine),
+        title: const Text('Complete backup setup'),
+        subtitle: const Text('Re-enter your recovery words to finish setup'),
+        trailing: const Icon(LucideIcons.chevronRight),
+        onTap: () => _confirmReEntry(context, ref),
+      );
+    }
+
+    return ListTile(
           leading: const Icon(LucideIcons.shieldCheck),
           title: const Text('Encrypted backup (.ohbk)'),
           subtitle: authState.lastBackupAt != null
@@ -313,8 +328,6 @@ class _EncryptedBackupSection extends ConsumerWidget {
             ],
           ),
         );
-      },
-    );
   }
 
   // Both the seed-generate/show/re-entry-confirm flow and the wrong-words

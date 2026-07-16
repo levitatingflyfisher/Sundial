@@ -38,6 +38,7 @@ Future<Widget> _makeScreen({
         ),
       ),
       backupSerializerProvider.overrideWithValue(FakeBackupSerializer()),
+      vaultStoreProvider.overrideWithValue(InMemoryVaultStore()),
     ],
     child: const MaterialApp(home: ExportScreen()),
   );
@@ -73,6 +74,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Restore from encrypted backup'), findsOneWidget);
+    });
+
+    testWidgets(
+        '"Previous backups" (the snapshot vault) is always reachable and '
+        'opens the sheet', (tester) async {
+      final store = InMemorySecureKeyStore();
+      await tester.pumpWidget(await _makeScreen(store: store));
+      await tester.pumpAndSettle();
+
+      final tile = find.text('Previous backups');
+      expect(tile, findsOneWidget);
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No snapshots yet'), findsOneWidget);
     });
 
     testWidgets('existing plaintext/JSON/PDF export options are unaffected',
