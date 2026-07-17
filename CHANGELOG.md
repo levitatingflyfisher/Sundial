@@ -4,7 +4,18 @@ All notable changes to Sundial will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Adopted the shared `openhearth_design` package (path dep): the text
+  theme now comes from `OhTypography.materialTextTheme` and the
+  canonical-valued palette entries (sage500/onPace, linen50, linen900,
+  warmDark) alias `OhColors` tokens. Byte-identical by construction —
+  zero visual change, locked by a design-sync test and the unchanged
+  golden suite.
+
 ### Added
+- `DateTimeExt.dateOnly`, `DateTimeExt.startOfWeek` and the DST-safe
+  `daysBetweenDates` helper, synced verbatim from Bulwark's superset of
+  the shared extension file.
 - Snapshot vault ("Previous backups" on the Backup & Restore screen):
   every encrypted export and every restore leaves a stamped on-device
   snapshot (keep-10, pinnable) you can restore, pin or delete.
