@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone the sibling path-dep packages
+        # Sundial depends on these by sibling path (../... relative to this
+        # checkout), matching the local monorepo layout. Checked out one
+        # level above $GITHUB_WORKSPACE, which is writable — the runner
+        # owns the whole .../work/<repo>/ tree, not just the checkout dir.
+        # sanctuary_backup_ui itself depends on sanctuary_auth_core by the
+        # same sibling path, so both must land under packages/.
+        run: |
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryAuthCore ../packages/sanctuary_auth_core
+          git clone --depth 1 https://github.com/levitatingflyfisher/sanctuaryBackupUi ../packages/sanctuary_backup_ui
+          git clone --depth 1 https://github.com/levitatingflyfisher/ohStyle ../ohStyle
+          git clone --depth 1 https://github.com/levitatingflyfisher/ohFleetConformance ../packages/oh_fleet_conformance
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Code generation (Riverpod, Drift)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
