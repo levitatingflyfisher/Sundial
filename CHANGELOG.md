@@ -29,3 +29,16 @@ All notable changes to Sundial will be documented in this file.
   (older backups still restore; older app versions still read new
   backups).
 - Silent freshness snapshot when the newest one is older than 7 days.
+- Fleet conformance suite (`oh_fleet_conformance` dev dep +
+  `test/fleet_conformance_test.dart`): canonical design package, backup
+  retention, size-budget ratchet (`budgets.json`), the exact Android
+  permission surface and the harness canon are now tests that can fail.
+- Push-triggered CI (`ci.yml`: analyze + full test suite on every
+  push/PR, fleet Flutter pin 3.38.7); the release workflow now clones
+  every sibling path dep (ohStyle + ohFleetConformance included).
+
+### Fixed
+- Goldens now render lucide icons for real: `flutter_test_config.dart`
+  synced to the fleet's FontManifest-aware canon, which loads every
+  bundled font (the old local variant skipped lucide_flutter's icon
+  font, so goldens showed placeholder boxes where icons belong).
