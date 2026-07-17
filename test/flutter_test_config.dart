@@ -11,9 +11,17 @@ import 'package:flutter_test/flutter_test.dart';
 /// Flutter renders by default. Fonts are resolved from the active Flutter SDK's
 /// font cache (nothing is vendored into the repo); if they can't be found,
 /// tests still run — text just falls back to boxes.
+///
+/// The app's own bundled families (Lora/Nunito, declared in pubspec `fonts:`)
+/// are loaded too, from the repo's assets/fonts/ — `flutter test` does NOT
+/// load pubspec-declared asset fonts automatically, so without this every
+/// AppTextStyles run (fontFamily 'Lora'/'Nunito') renders as Ahem boxes while
+/// theme text (Roboto) renders for real, and goldens silently depend on which
+/// families happened to load when they were generated.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await _loadRealFonts();
+  await _loadBundledFonts();
   return testMain();
 }
 
@@ -47,6 +55,39 @@ Future<void> _loadRealFonts() async {
     'Roboto-Light.ttf',
   ]);
   await load('MaterialIcons', <String>['MaterialIcons-Regular.otf']);
+}
+
+/// Loads the app's bundled font families from assets/fonts/ (repo-relative;
+/// `flutter test` runs with the package root as CWD). Same soft-fail contract
+/// as [_loadRealFonts]: missing files just mean boxes, never a test error.
+Future<void> _loadBundledFonts() async {
+  const Map<String, List<String>> families = <String, List<String>>{
+    'Lora': <String>[
+      'Lora-Regular.ttf',
+      'Lora-Italic.ttf',
+      'Lora-Medium.ttf',
+      'Lora-Bold.ttf',
+    ],
+    'Nunito': <String>[
+      'Nunito-Regular.ttf',
+      'Nunito-Medium.ttf',
+      'Nunito-SemiBold.ttf',
+      'Nunito-Bold.ttf',
+    ],
+  };
+
+  for (final MapEntry<String, List<String>> family in families.entries) {
+    final FontLoader loader = FontLoader(family.key);
+    bool any = false;
+    for (final String name in family.value) {
+      final File f = File('assets/fonts/$name');
+      if (!f.existsSync()) continue;
+      loader.addFont(Future<ByteData>.value(
+          ByteData.view(Uint8List.fromList(f.readAsBytesSync()).buffer)));
+      any = true;
+    }
+    if (any) await loader.load();
+  }
 }
 
 /// Resolves the active Flutter SDK's `material_fonts` cache directory.
