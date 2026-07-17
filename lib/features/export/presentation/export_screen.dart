@@ -15,11 +15,22 @@ import 'package:sundial/features/export/data/pdf_export_impl.dart';
 import 'package:sundial/features/export/data/plaintext_export_impl.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 
+/// Whether this platform can write an export to a device file — a Riverpod
+/// seam over the conditional-import trio (backup_file_save*.dart), so widget
+/// tests can fake the web resolution by overriding with `false` (the raw
+/// top-level getter is picked at compile time and is always the io one in a
+/// VM test run). Every save-to-device affordance on this screen must gate on
+/// this: a button that silently fails on the live PWA is the bug class F15
+/// exists to prevent.
+final saveToDeviceSupportedProvider =
+    Provider<bool>((_) => backupSaveToDeviceSupported);
+
 class ExportScreen extends ConsumerWidget {
   const ExportScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canSaveToDevice = ref.watch(saveToDeviceSupportedProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Backup & Restore')),
       body: ListView(
@@ -49,9 +60,14 @@ class ExportScreen extends ConsumerWidget {
             icon: LucideIcons.fileText,
             title: 'Plaintext (.sundial)',
             subtitle: 'Unencrypted, human-readable summary (export only)',
-            onSave: () => _buildPlaintext(ref).then(
-              (r) => _saveLocally(context, r.$1, r.$2),
-            ),
+            // Web can't write device files — hide Save there (same F15 rule
+            // as the .ohbk tile below) instead of offering a button that
+            // always ends in a "Save failed" snackbar. Share still works.
+            onSave: canSaveToDevice
+                ? () => _buildPlaintext(ref).then(
+                      (r) => _saveLocally(context, r.$1, r.$2),
+                    )
+                : null,
             onShare: () => _buildPlaintext(ref).then(
               (r) => _shareFile(context, r.$1, r.$2),
             ),
@@ -60,9 +76,11 @@ class ExportScreen extends ConsumerWidget {
             icon: LucideIcons.braces,
             title: 'JSON',
             subtitle: 'Unencrypted, machine-readable backup',
-            onSave: () => _buildJson(ref).then(
-              (r) => _saveLocally(context, r.$1, r.$2),
-            ),
+            onSave: canSaveToDevice
+                ? () => _buildJson(ref).then(
+                      (r) => _saveLocally(context, r.$1, r.$2),
+                    )
+                : null,
             onShare: () => _buildJson(ref).then(
               (r) => _shareFile(context, r.$1, r.$2),
             ),
@@ -118,17 +136,14 @@ class ExportScreen extends ConsumerWidget {
   Future<void> _saveLocally(
       BuildContext context, String content, String filename) async {
     try {
-      Directory? dir;
-      try {
-        dir = await getExternalStorageDirectory();
-      } catch (_) {}
-      dir ??= await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$filename');
-      await file.writeAsString(content);
+      // Confined to the io/web trio (backup_file_save.dart) so no
+      // unconditional dart:io write is reachable from this screen — the
+      // web build hides the Save affordance entirely (see build()).
+      final path = await saveTextToDevice(content, filename);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Saved to ${file.path}'),
+            content: Text('Saved to $path'),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -312,7 +327,9 @@ class _EncryptedBackupSection extends ConsumerWidget {
               // F15: dart:io file writes aren't available on web — hide
               // Save there rather than offer an affordance that always
               // fails; Share (bytes-only, web-safe) remains available.
-              if (backupSaveToDeviceSupported)
+              // Read through the provider seam (not the raw trio getter)
+              // so tests can fake the web resolution.
+              if (ref.watch(saveToDeviceSupportedProvider))
                 IconButton(
                   icon: const Icon(LucideIcons.download, size: 20),
                   tooltip: 'Save to device',
@@ -408,7 +425,10 @@ class _ExportTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onSave;
+
+  /// Null hides the Save button entirely (web: no device file writes) —
+  /// honest absence, not a disabled or silently-failing affordance.
+  final VoidCallback? onSave;
   final VoidCallback onShare;
 
   @override
@@ -420,11 +440,12 @@ class _ExportTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(LucideIcons.download, size: 20),
-            tooltip: 'Save to device',
-            onPressed: onSave,
-          ),
+          if (onSave != null)
+            IconButton(
+              icon: const Icon(LucideIcons.download, size: 20),
+              tooltip: 'Save to device',
+              onPressed: onSave,
+            ),
           IconButton(
             icon: const Icon(LucideIcons.share2, size: 20),
             tooltip: 'Share',
