@@ -684,6 +684,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.3.0"
+  oh_fleet_conformance:
+    dependency: "direct dev"
+    description:
+      path: "../packages/oh_fleet_conformance"
+      relative: true
+    source: path
+    version: "0.1.0"
   openhearth_design:
     dependency: "direct main"
     description:

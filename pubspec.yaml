@@ -66,6 +66,10 @@ dev_dependencies:
   # doesn't re-export the interface, so it's a direct dev dependency.
   share_plus_platform_interface: ^5.0.2
   flutter_lints: ^4.0.0
+  # The fleet's standards as tests that can fail (C1 style … C6 harness) —
+  # sibling path dep like the sanctuary packages above.
+  oh_fleet_conformance:
+    path: ../packages/oh_fleet_conformance
   flutter_goldens:
     sdk: flutter
 
