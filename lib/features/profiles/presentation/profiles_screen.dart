@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
+import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 
-const profileColors = [
-  0xFF5E9478, // sage green (brand)
+final profileColors = [
+  AppColors.sage500.toARGB32(), // sage green (brand, canonical)
   0xFFD48B44, // warm amber
   0xFFBE6B5E, // terracotta
   0xFF5B8DB8, // sky blue

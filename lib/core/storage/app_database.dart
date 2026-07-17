@@ -1,6 +1,7 @@
 // lib/core/storage/app_database.dart
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sundial/shared/theme/app_colors.dart';
 
 part 'app_database.g.dart';
 
@@ -114,7 +115,7 @@ class AppDatabase extends _$AppDatabase {
       ProfilesCompanion.insert(
         id: 'default',
         name: 'Me',
-        colorValue: 0xFF5E9478, // sage green
+        colorValue: AppColors.sage500.toARGB32(), // sage green (canonical)
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
