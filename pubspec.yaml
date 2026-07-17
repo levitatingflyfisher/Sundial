@@ -10,6 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.5.1
+  # clock.now() instead of DateTime.now() in date-windowed UI so tests can
+  # pin "today" with withClock (StillLife precedent) — date-relative renders
+  # otherwise go stale daily and date-seeded goldens rot.
+  clock: ^1.1.1
   riverpod_annotation: ^2.3.5
   drift: ^2.18.0
   drift_flutter: ^0.2.2

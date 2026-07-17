@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -15,7 +16,9 @@ class DotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
+    // clock.now() (not DateTime.now()) so tests can pin "today" with
+    // withClock — otherwise date-relative renders go stale daily.
+    final today = clock.now();
     // Rolling 7 days ending today (oldest first)
     final days = List.generate(
       7,
