@@ -1,4 +1,5 @@
 // lib/features/timer/presentation/timer_screen.dart
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -205,7 +206,9 @@ class _StatsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
+    // clock.now() (not DateTime.now()) so tests can pin which day/year the
+    // Today / This Year streams aggregate — same class as StatsScreen's keys.
+    final now = clock.now();
     final repo = ref.watch(sessionsRepositoryProvider);
     final todayKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';

@@ -1,4 +1,5 @@
 // lib/features/stats/presentation/stats_screen.dart
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sundial/core/providers/core_providers.dart';
@@ -36,7 +37,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    // clock.now() (not DateTime.now()) so tests can pin "today" with
+    // withClock — otherwise date-relative renders go stale daily.
+    final now = clock.now();
     final todayKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
@@ -132,7 +135,7 @@ class _MonthlyBreakdown extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
+    final now = clock.now();
     final stream = ref
         .watch(sessionsRepositoryProvider)
         .watchAllSessionsFiltered(profileId);

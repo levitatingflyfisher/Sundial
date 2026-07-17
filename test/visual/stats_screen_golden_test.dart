@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -66,9 +67,13 @@ Future<void> _tearDown(WidgetTester tester) async {
 
 void main() {
   testWidgets('StatsScreen responsive golden sweep', (tester) async {
-    final now = DateTime.now();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    // Pin "today" — StatsScreen derives today/month/year keys, the monthly
+    // breakdown, and the heatmap's today boundary from clock.now(), so an
+    // unpinned render changes every real day and the golden rots. 2026-05-20
+    // puts the fixed s4 session (2026-05-15) five days back: a second visible
+    // heatmap day that also counts into This Month / This Year / May's bar.
+    final fixedNow = DateTime(2026, 5, 20, 12);
+    const today = '2026-05-20';
     // Two profiles so the filter row renders, plus a few sessions so the
     // Today/charts cards show real numbers — the layout most likely to crowd
     // at narrow widths and large text scales.
@@ -85,25 +90,27 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
-    await goldenAtSizes(
-      tester,
-      name: 'stats_screen',
-      home: ProviderScope(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-          appDatabaseProvider.overrideWith((_) => db),
-        ],
-        child: const StatsScreen(),
-      ),
-      // App theme is built via google_fonts (Lora/Nunito); bypass it with a
-      // plain Roboto theme that flutter_test_config.dart loads.
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
-      sizes: const {
-        'phone': Size(360, 800),
-        'narrow': Size(320, 800),
-      },
-      textScales: const <double>[1.0, 3.0],
-    );
+    await withClock(Clock.fixed(fixedNow), () async {
+      await goldenAtSizes(
+        tester,
+        name: 'stats_screen',
+        home: ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            appDatabaseProvider.overrideWith((_) => db),
+          ],
+          child: const StatsScreen(),
+        ),
+        // App theme is built via google_fonts (Lora/Nunito); bypass it with a
+        // plain Roboto theme that flutter_test_config.dart loads.
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+        sizes: const {
+          'phone': Size(360, 800),
+          'narrow': Size(320, 800),
+        },
+        textScales: const <double>[1.0, 3.0],
+      );
+    });
 
     await _tearDown(tester);
   });
