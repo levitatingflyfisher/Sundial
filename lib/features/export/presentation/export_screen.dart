@@ -1,5 +1,7 @@
+// NOTE: no dart:io in this file — every filesystem write lives behind the
+// conditional-import trio (backup_file_save.dart), and share/import go
+// through bytes, so the whole screen is web-honest by construction.
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -207,13 +209,30 @@ class ExportScreen extends ConsumerWidget {
   // ── Import ────────────────────────────────────────────────────────
 
   Future<void> _importJson(BuildContext context, WidgetRef ref) async {
+    // withData: the picked file's bytes come back in memory on every
+    // platform. On web there is no filesystem path at all, so the previous
+    // path-only read made "Import from JSON" silently do nothing on the
+    // live PWA — the exact affordance-that-lies bug class this screen's
+    // save/share paths were already cured of.
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
+      withData: true,
     );
-    if (result == null || result.files.single.path == null) return;
+    if (result == null) return; // user cancelled — the only silent exit
+    final bytes = result.files.single.bytes;
+    if (bytes == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't read the selected file. Try again."),
+          ),
+        );
+      }
+      return;
+    }
     try {
-      final content = await File(result.files.single.path!).readAsString();
+      final content = utf8.decode(bytes);
       final payload = JsonImporter().parse(content);
       final profilesRepo = ref.read(profilesRepositoryProvider);
       // Restore profiles first so FKs resolve.

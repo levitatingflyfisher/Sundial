@@ -8,9 +8,10 @@
 // resolution (the raw top-level getter is compile-time and always io here).
 
 import 'dart:convert';
-import 'dart:ui';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/export/presentation/export_screen.dart';
+
+/// Serves a canned pick result the way the web platform does — bytes when
+/// withData was requested, and never a filesystem path — while recording the
+/// withData flag the screen asked for.
+class _FakeFilePicker extends FilePicker {
+  _FakeFilePicker(this.result);
+  final FilePickerResult? result;
+  bool? lastWithData;
+
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    bool allowCompression = true,
+    int compressionQuality = 30,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+  }) async {
+    lastWithData = withData;
+    return result;
+  }
+}
 
 /// Records the shareXFiles call the export tiles make. Extending
 /// [SharePlatform] (not the method channel) keeps the platform-interface
@@ -205,6 +234,68 @@ void main() {
       expect(share.files, isNotNull);
       expect(share.fileNameOverrides, ['sundial-backup.sundial']);
       expect(share.files!.single.mimeType, 'text/plain');
+    });
+  });
+
+  group('ExportScreen — import works from bytes (web has no file paths)', () {
+    const backupJson = '{"version":3,'
+        '"sessions":[{"id":"s1","start_time":1746957600000,'
+        '"end_time":1746961200000,"duration_secs":3600,'
+        '"date_day":"2026-05-11"}],'
+        '"profiles":[],"badges":[]}';
+
+    testWidgets(
+        'a picked file with bytes but no path (the web shape) imports — '
+        'previously the button silently did nothing on the live PWA',
+        (tester) async {
+      final picker = _FakeFilePicker(FilePickerResult([
+        PlatformFile(
+          name: 'sundial-backup.json',
+          size: backupJson.length,
+          bytes: Uint8List.fromList(utf8.encode(backupJson)),
+          // path deliberately absent: FilePicker on web never has one.
+        ),
+      ]));
+      FilePicker.platform = picker;
+
+      await tester.pumpWidget(
+          await _makeScreen(store: InMemorySecureKeyStore()));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Import from JSON'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+
+      expect(picker.lastWithData, isTrue,
+          reason: 'without withData the web picker returns no bytes either — '
+              'the import must request them');
+      expect(find.textContaining('Imported 1 sessions'), findsOneWidget,
+          reason: 'the import must complete from bytes alone');
+    });
+
+    testWidgets(
+        'a picked file with neither bytes nor path reports an honest '
+        'failure — never a silent no-op', (tester) async {
+      final picker = _FakeFilePicker(FilePickerResult([
+        PlatformFile(name: 'sundial-backup.json', size: 0),
+      ]));
+      FilePicker.platform = picker;
+
+      await tester.pumpWidget(
+          await _makeScreen(store: InMemorySecureKeyStore()));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Import from JSON'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget,
+          reason: 'the user must hear SOMETHING when the pick can\'t be read');
+      expect(find.textContaining("Couldn't read"), findsOneWidget);
     });
   });
 }
