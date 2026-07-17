@@ -104,6 +104,16 @@ void main() {
       expect(() => serializer.describeBackup(tooNew),
           throwsA(isA<BackupSchemaException>()));
 
+      // REVIEW FIX: describe must reject payloads restoreAll would reject —
+      // including a payload whose profiles key is not a List.
+      final badPayload = Uint8List.fromList(utf8.encode(jsonEncode({
+        'app': 'sundial',
+        'schemaVersion': db.schemaVersion,
+        'payload': {'profiles': 'not-a-list'},
+      })));
+      expect(() => serializer.describeBackup(badPayload),
+          throwsA(isA<FormatException>()));
+
       // Dry-run guarantee: nothing was written by any of the above.
       expect(await db.select(db.sessions).get(), hasLength(2));
     });

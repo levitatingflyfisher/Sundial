@@ -59,8 +59,17 @@ class SundialBackupSerializer
   /// writes.
   @override
   Future<BackupManifest> describeBackup(Uint8List plaintext) async {
-    _unwrap(plaintext); // throws what restoreAll would
+    final unwrapped = _unwrap(plaintext); // throws what restoreAll would
+    _requirePayload(unwrapped.payload); // same content check as restoreAll
     return BackupEnvelope.describe(plaintext);
+  }
+
+  /// The payload-content gate [restoreAll] applies — shared so describe
+  /// and restore can never drift apart again.
+  static void _requirePayload(Map<String, Object?> payloadJson) {
+    if (payloadJson.isEmpty || payloadJson['profiles'] is! List) {
+      throw const FormatException('Missing payload in backup file');
+    }
   }
 
   UnwrappedBackup _unwrap(Uint8List data) => BackupEnvelope.unwrap(
@@ -84,9 +93,7 @@ class SundialBackupSerializer
   Future<void> restoreAll(Uint8List data) async {
     final unwrapped = _unwrap(data);
     final payloadJson = unwrapped.payload;
-    if (payloadJson.isEmpty || payloadJson['profiles'] is! List) {
-      throw const FormatException('Missing payload in backup file');
-    }
+    _requirePayload(payloadJson);
 
     final payload = JsonImporter().parse(jsonEncode(payloadJson));
 
