@@ -1,6 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Genuinely exercised, not vestigial: the outdoor timer runs as
+         TimerForegroundService (declared below with
+         foregroundServiceType="mediaPlayback"), which calls
+         startForeground(..., FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK) on
+         Android Q+ so the running/paused session survives the app being
+         backgrounded and exposes lock-screen media controls. Dart drives it
+         via the com.openhearth.sundial/media_session MethodChannel
+         (lib/features/timer/data/timer_notification_service.dart). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <application
         android:label="sundial"
