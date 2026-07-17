@@ -33,6 +33,10 @@ dependencies:
   lucide_flutter: ^1.7.0
   file_picker: ^8.1.0
   home_widget: ^0.7.0
+  # OpenHearth design tokens (canonical colors + the shared Material-scale
+  # TextTheme ladder) — sibling path dep like the sanctuary packages below.
+  openhearth_design:
+    path: ../ohStyle/openhearth_design
   # Encrypted backup (.ohbk) — sibling path deps, eloEngine precedent
   # (SANCTUARY-BRIEF §3). Clone both next to this repo; see README.
   sanctuary_auth_core:
