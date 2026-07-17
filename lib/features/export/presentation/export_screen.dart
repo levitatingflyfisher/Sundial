@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sanctuary_auth_core/sanctuary_auth_core.dart';
 import 'package:sanctuary_backup_ui/sanctuary_backup_ui.dart';
 import 'package:share_plus/share_plus.dart';
@@ -160,10 +162,23 @@ class ExportScreen extends ConsumerWidget {
   Future<void> _shareFile(
       BuildContext context, String content, String filename) async {
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$filename');
-      await file.writeAsString(content);
-      await Share.shareXFiles([XFile(file.path)], text: 'Sundial backup');
+      // Share straight from bytes — no dart:io temp file, so the same code
+      // path works on web (share_plus falls back to a download where the
+      // Web Share API is missing) and native alike. XFile.fromData's `name`
+      // is ignored by share_plus; fileNameOverrides is the supported way to
+      // name an in-memory file.
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(utf8.encode(content)),
+            mimeType: filename.endsWith('.json')
+                ? 'application/json'
+                : 'text/plain',
+          ),
+        ],
+        text: 'Sundial backup',
+        fileNameOverrides: [filename],
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
