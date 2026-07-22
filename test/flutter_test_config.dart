@@ -26,10 +26,20 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 /// fonts. This is what makes design-system fonts (Lora/Nunito/JetBrains Mono)
 /// render instead of boxes.
 Future<void> _loadAppBundledFonts() async {
+  final List<dynamic> families;
   try {
     final String manifest = await rootBundle.loadString('FontManifest.json');
-    final List<dynamic> families = json.decode(manifest) as List<dynamic>;
-    for (final dynamic entry in families) {
+    families = json.decode(manifest) as List<dynamic>;
+  } catch (_) {
+    // No FontManifest (app bundles no fonts) — fine.
+    return;
+  }
+  for (final dynamic entry in families) {
+    // Each family is guarded on its own: one family's failure (bad asset
+    // path, corrupt font) logs and continues instead of aborting the
+    // families after it — MaterialIcons loads first, so an unguarded
+    // failure there would silently kill Lora/Nunito.
+    try {
       final Map<String, dynamic> e = entry as Map<String, dynamic>;
       final String? family = e['family'] as String?;
       final List<dynamic>? fonts = e['fonts'] as List<dynamic>?;
@@ -40,9 +50,11 @@ Future<void> _loadAppBundledFonts() async {
         if (asset != null) loader.addFont(rootBundle.load(asset));
       }
       await loader.load();
+    } catch (e) {
+      // ignore: avoid_print
+      print('flutter_test_config: skipped a font family that failed to '
+          'load: $e');
     }
-  } catch (_) {
-    // No FontManifest (app bundles no fonts) — fine.
   }
 }
 
