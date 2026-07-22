@@ -88,9 +88,9 @@ void main() {
         _sess(id: 's3', day: '2026-04-02', durationSecs: 7200, notes: 'hike'),
       ];
       final badges = [
-        Badge(id: 'badge_10h', thresholdHours: 10, earnedAt: 1700000000000),
-        Badge(id: 'badge_25h', thresholdHours: 25, earnedAt: null),
-        Badge(id: 'badge_50h', thresholdHours: 50, earnedAt: 1700000500000),
+        const Badge(id: 'badge_10h', thresholdHours: 10, earnedAt: 1700000000000),
+        const Badge(id: 'badge_25h', thresholdHours: 25, earnedAt: null),
+        const Badge(id: 'badge_50h', thresholdHours: 50, earnedAt: 1700000500000),
       ];
 
       final json = exporter.buildJson(
@@ -275,21 +275,21 @@ void main() {
     test('full DB export → import into a fresh DB reproduces all data',
         () async {
       // ── Populate source DB ──
-      await profilesRepo.upsertRaw(ProfilesCompanion(
-        id: const Value('p1'),
-        name: const Value('Alice'),
-        emoji: const Value('🌱'),
-        colorValue: const Value(0xFF5E9478),
-        sortOrder: const Value(0),
-        createdAt: const Value(1700000000000),
+      await profilesRepo.upsertRaw(const ProfilesCompanion(
+        id: Value('p1'),
+        name: Value('Alice'),
+        emoji: Value('🌱'),
+        colorValue: Value(0xFF5E9478),
+        sortOrder: Value(0),
+        createdAt: Value(1700000000000),
       ));
-      await profilesRepo.upsertRaw(ProfilesCompanion(
-        id: const Value('p2'),
-        name: const Value('Bob'),
-        emoji: const Value.absent(),
-        colorValue: const Value(0xFFD48B44),
-        sortOrder: const Value(1),
-        createdAt: const Value(1700000100000),
+      await profilesRepo.upsertRaw(const ProfilesCompanion(
+        id: Value('p2'),
+        name: Value('Bob'),
+        emoji: Value.absent(),
+        colorValue: Value(0xFFD48B44),
+        sortOrder: Value(1),
+        createdAt: Value(1700000100000),
       ));
       await sessionsRepo.saveSession(_sess(
           id: 's1',

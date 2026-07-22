@@ -30,32 +30,32 @@ final sharedPreferencesProvider =
     Provider<SharedPreferences>((ref) => throw UnimplementedError());
 
 @riverpod
-AppDatabase appDatabase(AppDatabaseRef ref) {
+AppDatabase appDatabase(Ref ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);
   return db;
 }
 
 @riverpod
-SessionsRepository sessionsRepository(SessionsRepositoryRef ref) {
+SessionsRepository sessionsRepository(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return LocalSessionsRepository(SessionsDao(db));
 }
 
 @riverpod
-BadgesRepository badgesRepository(BadgesRepositoryRef ref) {
+BadgesRepository badgesRepository(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return LocalBadgesRepository(BadgesDao(db), SessionsDao(db));
 }
 
 @riverpod
-ProfilesRepository profilesRepository(ProfilesRepositoryRef ref) {
+ProfilesRepository profilesRepository(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return LocalProfilesRepository(ProfilesDao(db), SessionsDao(db));
 }
 
 @riverpod
-Stream<List<Profile>> profilesList(ProfilesListRef ref) =>
+Stream<List<Profile>> profilesList(Ref ref) =>
     ref.watch(profilesRepositoryProvider).watchAll();
 
 /// The currently selected profile ID. Persisted in SharedPreferences.
@@ -77,24 +77,24 @@ final activeProfileIdProvider =
 });
 
 @riverpod
-SettingsRepository settingsRepository(SettingsRepositoryRef ref) {
+SettingsRepository settingsRepository(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return LocalSettingsRepository(db);
 }
 
 @riverpod
-AuthRepository authRepository(AuthRepositoryRef ref) => GhostAuthRepository();
+AuthRepository authRepository(Ref ref) => GhostAuthRepository();
 
 @riverpod
-Stream<AppMode> appMode(AppModeRef ref) =>
+Stream<AppMode> appMode(Ref ref) =>
     ref.watch(settingsRepositoryProvider).watchAppMode();
 
 @riverpod
-Stream<UserPrefs> userPrefs(UserPrefsRef ref) =>
+Stream<UserPrefs> userPrefs(Ref ref) =>
     ref.watch(settingsRepositoryProvider).watchUserPrefs();
 
 @riverpod
-ThemeMode themeMode(ThemeModeRef ref) {
+ThemeMode themeMode(Ref ref) {
   final prefs = ref.watch(userPrefsProvider);
   return prefs.when(
     data: (p) => p.isDarkMode ? ThemeMode.dark : ThemeMode.light,

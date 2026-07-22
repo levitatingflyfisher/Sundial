@@ -15,7 +15,7 @@ import 'package:sundial/features/sessions/domain/sessions_repository.dart';
 class _FailingSessionsRepo implements SessionsRepository {
   @override
   Future<Either<StorageFailure, Unit>> saveSession(Session s) async =>
-      Left(const StorageFailure('disk full'));
+      const Left(StorageFailure('disk full'));
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }

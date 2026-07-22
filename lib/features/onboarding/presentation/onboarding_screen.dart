@@ -264,7 +264,7 @@ class _SundialIconPainter extends CustomPainter {
     );
 
     // Sun position at 50% (angle = π + π*0.5 = 3π/2 = straight up)
-    final sunAngle = math.pi + math.pi * 0.5;
+    const sunAngle = math.pi + math.pi * 0.5;
     final sunPos = Offset(
       cx + r * math.cos(sunAngle),
       cy + r * math.sin(sunAngle),
