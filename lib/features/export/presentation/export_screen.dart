@@ -68,26 +68,34 @@ class ExportScreen extends ConsumerWidget {
             // as the .ohbk tile below) instead of offering a button that
             // always ends in a "Save failed" snackbar. Share still works.
             onSave: canSaveToDevice
-                ? () => _buildPlaintext(ref).then(
-                      (r) => _saveLocally(context, r.$1, r.$2),
-                    )
+                ? () async {
+                    final r = await _buildPlaintext(ref);
+                    if (!context.mounted) return;
+                    await _saveLocally(context, r.$1, r.$2);
+                  }
                 : null,
-            onShare: () => _buildPlaintext(ref).then(
-              (r) => _shareFile(context, r.$1, r.$2),
-            ),
+            onShare: () async {
+              final r = await _buildPlaintext(ref);
+              if (!context.mounted) return;
+              await _shareFile(context, r.$1, r.$2);
+            },
           ),
           _ExportTile(
             icon: LucideIcons.braces,
             title: 'JSON',
             subtitle: 'Unencrypted, machine-readable backup',
             onSave: canSaveToDevice
-                ? () => _buildJson(ref).then(
-                      (r) => _saveLocally(context, r.$1, r.$2),
-                    )
+                ? () async {
+                    final r = await _buildJson(ref);
+                    if (!context.mounted) return;
+                    await _saveLocally(context, r.$1, r.$2);
+                  }
                 : null,
-            onShare: () => _buildJson(ref).then(
-              (r) => _shareFile(context, r.$1, r.$2),
-            ),
+            onShare: () async {
+              final r = await _buildJson(ref);
+              if (!context.mounted) return;
+              await _shareFile(context, r.$1, r.$2);
+            },
           ),
           ListTile(
             leading: const Icon(LucideIcons.file),
