@@ -54,7 +54,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   bool _matchesFilter(Session session, WeekStart weekStartPref) {
     if (_filter == _DateFilter.all) return true;
     final now = DateTime.now();
-    final day = session.dateDay as String;
+    final day = session.dateDay;
     final date = DateTime.parse(day);
     if (_filter == _DateFilter.thisMonth) {
       return date.year == now.year && date.month == now.month;
@@ -427,7 +427,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     // Group sessions by dateDay for the current month
     final sessionsByDay = <String, List<Session>>{};
     for (final s in all) {
-      final day = s.dateDay as String;
+      final day = s.dateDay;
       if (day.startsWith(monthPrefix)) {
         sessionsByDay.putIfAbsent(day, () => []).add(s);
       }

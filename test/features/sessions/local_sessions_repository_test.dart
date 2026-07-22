@@ -2,7 +2,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/sessions/data/local_sessions_repository.dart';
 import 'package:sundial/features/sessions/data/sessions_dao.dart';
