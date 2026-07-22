@@ -14,8 +14,8 @@ All notable changes to Sundial will be documented in this file.
 
 ### Added
 - `DateTimeExt.dateOnly`, `DateTimeExt.startOfWeek` and the DST-safe
-  `daysBetweenDates` helper, synced verbatim from Bulwark's superset of
-  the shared extension file.
+  `daysBetweenDates` helper, kept byte-aligned with the fleet's shared
+  extension file.
 - Snapshot vault ("Previous backups" on the Backup & Restore screen):
   every encrypted export and every restore leaves a stamped on-device
   snapshot (keep-10, pinnable) you can restore, pin or delete.
@@ -38,6 +38,11 @@ All notable changes to Sundial will be documented in this file.
   every sibling path dep (ohStyle + ohFleetConformance included).
 
 ### Fixed
+- `DateTimeExt.startOfWeek` is now DST-safe: calendar arithmetic
+  (`DateTime(y, m, d - n)`) instead of Duration subtraction, so a
+  daylight-saving transition inside the week can no longer shift the
+  computed Monday to 23:00/01:00 beside midnight (pinned by a
+  TZ=America/Santiago child-process test).
 - Goldens now render lucide icons for real: `flutter_test_config.dart`
   synced to the fleet's FontManifest-aware canon, which loads every
   bundled font (the old local variant skipped lucide_flutter's icon
