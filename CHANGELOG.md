@@ -13,6 +13,10 @@ All notable changes to Sundial will be documented in this file.
   golden suite.
 
 ### Added
+- `assets/fonts/OFL.txt`: the SIL Open Font License 1.1 text with the
+  Lora and Nunito copyright notices (taken from the fonts' own
+  metadata) now ships alongside the bundled faces, as the OFL requires;
+  referenced from the README's License section.
 - `DateTimeExt.dateOnly`, `DateTimeExt.startOfWeek` and the DST-safe
   `daysBetweenDates` helper, kept byte-aligned with the fleet's shared
   extension file.
