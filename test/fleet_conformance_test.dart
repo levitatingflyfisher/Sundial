@@ -16,4 +16,17 @@ void main() => runFleetConformance(const FleetAppConfig(
         // survives backgrounding) — evidence recorded in AndroidManifest.xml.
         'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
       },
+      // C4 v2 — the release MERGED surface: source permissions plus
+      // what plugins and the manifest merge inject. Bites when an APK
+      // build has left a merged manifest under build/ (dev box).
+      mergedAndroidPermissions: {
+        'android.permission.ACCESS_NETWORK_STATE',
+        'android.permission.FOREGROUND_SERVICE',
+        'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+        'android.permission.POST_NOTIFICATIONS',
+        'android.permission.RECEIVE_BOOT_COMPLETED',
+        'android.permission.VIBRATE',
+        'android.permission.WAKE_LOCK',
+        'com.openhearth.sundial.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+      },
     ));
