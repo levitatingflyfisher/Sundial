@@ -1,0 +1,12 @@
+Start a timer, go outside, stop it. Log the hours against a personal yearly goal.
+
+Sundial is the local-first answer to "1000 Hours Outside" — and it is built on forgiveness rather than prevention. The real fix for a forgotten timer is editing, not nagging: any session, including one you just stopped, is immediately and completely editable. Tap it, correct the duration, done.
+
+• A simple timer, and a yearly goal to aim at
+• Every session fully editable after the fact
+• No side-stopwatch, no mental arithmetic, no guilt
+
+No accounts, no cloud, no ads. The APK asks for no network permission at all.
+
+Free and open source, MIT licensed.
+Source: https://github.com/levitatingflyfisher/Sundial
