@@ -120,4 +120,16 @@ class SessionsDao extends DatabaseAccessor<AppDatabase>
   Future<void> clearProfileId(String profileId) => (update(sessions)
         ..where((t) => t.profileId.equals(profileId)))
       .write(const SessionsCompanion(profileId: Value(null)));
+
+  Future<List<String>> sessionIdsForProfile(String profileId) async =>
+      [
+        for (final s in await (select(sessions)
+              ..where((t) => t.profileId.equals(profileId)))
+            .get())
+          s.id,
+      ];
+
+  Future<void> setProfileId(List<String> ids, String profileId) =>
+      (update(sessions)..where((t) => t.id.isIn(ids)))
+          .write(SessionsCompanion(profileId: Value(profileId)));
 }

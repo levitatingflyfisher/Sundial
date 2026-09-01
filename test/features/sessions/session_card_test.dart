@@ -108,4 +108,58 @@ void main() {
       expect(find.text('👨'), findsOneWidget);
     });
   });
+
+  group('SessionCard swipe delete (easy gesture confirms, per the ruling)', () {
+    Future<void> swipe(WidgetTester tester) async {
+      await tester.drag(find.byType(ListTile), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('asks first, naming the session and the act', (tester) async {
+      var deleted = 0;
+      await tester.pumpWidget(_wrap(SessionCard(
+        session: _session(),
+        onTap: () {},
+        onDelete: () => deleted++,
+      )));
+      await swipe(tester);
+
+      // The title names the object (duration + date), not "Delete session?".
+      expect(find.text('Delete 1h on Thu, Apr 9?'), findsOneWidget);
+      expect(find.text('Delete session'), findsOneWidget,
+          reason: 'the button names the act, never OK or a bare Delete');
+      // The swipe delete is permanent, and the dialog says so in words.
+      expect(find.textContaining('for good'), findsOneWidget);
+      expect(deleted, 0);
+    });
+
+    testWidgets('Cancel keeps the session', (tester) async {
+      var deleted = 0;
+      await tester.pumpWidget(_wrap(SessionCard(
+        session: _session(),
+        onTap: () {},
+        onDelete: () => deleted++,
+      )));
+      await swipe(tester);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, 0);
+      expect(find.byType(ListTile), findsOneWidget);
+    });
+
+    testWidgets('confirming deletes', (tester) async {
+      var deleted = 0;
+      await tester.pumpWidget(_wrap(SessionCard(
+        session: _session(),
+        onTap: () {},
+        onDelete: () => deleted++,
+      )));
+      await swipe(tester);
+      await tester.tap(find.text('Delete session'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, 1);
+    });
+  });
 }

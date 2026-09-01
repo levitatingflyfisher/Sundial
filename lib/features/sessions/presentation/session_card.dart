@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/profiles/presentation/profiles_screen.dart'
     show ProfileAvatar;
 import 'package:sundial/shared/extensions/duration_ext.dart';
-import 'package:sundial/shared/widgets/confirm_dialog.dart';
 
 class SessionCard extends StatelessWidget {
   const SessionCard({
@@ -50,10 +50,15 @@ class SessionCard extends StatelessWidget {
         color: cs.error,
         child: const Icon(LucideIcons.trash2, color: Colors.white),
       ),
-      confirmDismiss: (_) => showConfirmDialog(
+      // A swipe is an easy gesture, so it asks first (fleet delete ruling),
+      // naming the session so the dialog answers "which one?" on its own.
+      confirmDismiss: (_) => showOhConfirm(
         context,
-        title: 'Delete session?',
-        message: 'This cannot be undone.',
+        title: 'Delete ${dur.toHoursLabel()} on ${_dateFmt.format(date)}?',
+        // Honest: this delete is permanent (no soft delete behind a swipe).
+        message: 'It will be gone from your history for good.',
+        confirmLabel: 'Delete session',
+        destructive: true,
       ),
       onDismissed: (_) => onDelete(),
       child: ListTile(

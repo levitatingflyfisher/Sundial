@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
+import 'package:sanctuary_backup_ui/sanctuary_backup_ui.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
+import 'package:sundial/shared/widgets/section_header.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -17,7 +20,12 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       body: prefsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, st) => OhErrorState.fromError(
+          e,
+          stackTrace: st,
+          title: "Settings didn’t load",
+          onRetry: () => ref.invalidate(userPrefsProvider),
+        ),
         data: (prefs) => _SettingsList(prefs: prefs),
       ),
     );
@@ -35,12 +43,17 @@ class _SettingsList extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        const _SectionHeader('Goals'),
+        // Unfinished backup setup, never forgotten but dismissible (ruling
+        // 48). Here rather than on the timer: inform, never nag. Renders
+        // nothing once setup is finished or while dismissed.
+        const BackupSetupReminder(),
+        const SectionHeader('Goals'),
         ListTile(
           title: const Text('Annual goal'),
           trailing: Text('${prefs.annualGoalHours}h'),
           onTap: () => _editGoal(
-            context, ref,
+            context,
+            ref,
             title: 'Annual goal (hours)',
             current: prefs.annualGoalHours,
             onSave: (v) => repo.setAnnualGoalHours(v!),
@@ -52,29 +65,29 @@ class _SettingsList extends ConsumerWidget {
               ? '${prefs.monthlyGoalHours}h'
               : 'Not set'),
           onTap: () => _editGoal(
-            context, ref,
+            context,
+            ref,
             title: 'Monthly goal (hours)',
             current: prefs.monthlyGoalHours,
             onSave: (v) => repo.setMonthlyGoalHours(v),
             allowClear: true,
           ),
         ),
-        const _SectionHeader('Timer'),
+        const SectionHeader('Timer'),
         SwitchListTile(
           title: const Text('Auto-stop'),
-          subtitle: Text('Stop after ${prefs.autoStopThresholdHours}h'),
+          // Say the state the switch is in, not a behaviour it has turned
+          // off (doet-09).
+          subtitle: Text(prefs.autoStopEnabled
+              ? 'On: stops by itself after ${prefs.autoStopThresholdHours}h'
+              : 'Off: the timer runs until you stop it'),
           value: prefs.autoStopEnabled,
           onChanged: (v) => repo.setAutoStop(
             enabled: v,
             thresholdHours: prefs.autoStopThresholdHours,
           ),
         ),
-        const _SectionHeader('Appearance'),
-        SwitchListTile(
-          title: const Text('Dark mode'),
-          value: prefs.isDarkMode,
-          onChanged: repo.setDarkMode,
-        ),
+        const SectionHeader('Appearance'),
         if (prefs.appMode == AppMode.flow)
           ListTile(
             title: const Text('Timer face'),
@@ -97,14 +110,14 @@ class _SettingsList extends ConsumerWidget {
             ),
           ),
         ),
-        const _SectionHeader('People'),
+        const SectionHeader('People'),
         ListTile(
           leading: const Icon(LucideIcons.users),
           title: const Text('Manage people'),
           subtitle: const Text('Track time for family members individually'),
           onTap: () => context.push('/settings/profiles'),
         ),
-        const _SectionHeader('Data'),
+        const SectionHeader('Data'),
         ListTile(
           leading: const Icon(LucideIcons.hardDriveDownload),
           title: const Text('Backup & Restore'),
@@ -191,29 +204,5 @@ class _SettingsList extends ConsumerWidget {
     if (picked != null) {
       await ref.read(settingsRepositoryProvider).setFlowTimerStyle(picked);
     }
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: AppSpacing.sm,
-        top: AppSpacing.lg,
-        bottom: AppSpacing.xs,
-      ),
-      child: Text(
-        title.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-      ),
-    );
   }
 }

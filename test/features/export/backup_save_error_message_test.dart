@@ -34,7 +34,7 @@ void main() {
 
       final message = backupSaveErrorMessage(raw);
 
-      expect(message, contains("isn't available here"));
+      expect(message, contains('isn’t available here'));
       expect(message, contains('Try Share instead'));
     });
 

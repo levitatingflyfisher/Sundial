@@ -1,3 +1,4 @@
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/core/storage/app_database.dart' hide UserPrefs;
 import 'package:sundial/features/settings/domain/settings_repository.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
@@ -12,7 +13,10 @@ class LocalSettingsRepository implements SettingsRepository {
   static const _kTimerStyle = 'flow_timer_style';
   static const _kAutoStopEnabled = 'auto_stop_enabled';
   static const _kAutoStopHours = 'auto_stop_threshold_hours';
-  static const _kDarkMode = 'theme';
+  // Legacy bool theme ('dark' / 'light', light by default). Read only when
+  // _kThemeMode is absent; never written again.
+  static const _kLegacyDarkMode = 'theme';
+  static const _kThemeMode = 'theme_mode';
   static const _kTimeFormat = 'time_format';
   static const _kWeekStart = 'week_start';
 
@@ -73,8 +77,8 @@ class LocalSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<void> setDarkMode(bool dark) =>
-      _set(_kDarkMode, dark ? 'dark' : 'light');
+  Future<void> setThemeMode(OhThemeModePreference mode) =>
+      _set(_kThemeMode, mode.storageValue);
 
   @override
   Future<void> setTimeFormat(TimeFormat format) =>
@@ -91,10 +95,21 @@ class LocalSettingsRepository implements SettingsRepository {
     flowTimerStyle: _parseStyle(map[_kTimerStyle]),
     autoStopEnabled: map[_kAutoStopEnabled] == 'true',
     autoStopThresholdHours: int.tryParse(map[_kAutoStopHours] ?? '') ?? 2,
-    isDarkMode: map[_kDarkMode] == 'dark',
+    themeMode: _parseThemeMode(map),
     timeFormat: map[_kTimeFormat] == '24h' ? TimeFormat.h24 : TimeFormat.h12,
     weekStart: map[_kWeekStart] == 'monday' ? WeekStart.monday : WeekStart.sunday,
   );
+
+  // A new explicit choice wins. Otherwise migrate the legacy bool: dark stays
+  // dark; light (the old default, so usually "never chosen") and nothing both
+  // become follow-the-phone (operator ruling, 2026-09-26).
+  OhThemeModePreference _parseThemeMode(Map<String, String> map) {
+    final stored = map[_kThemeMode];
+    if (stored != null) return OhThemeModePreference.fromStorage(stored);
+    return map[_kLegacyDarkMode] == 'dark'
+        ? OhThemeModePreference.dark
+        : OhThemeModePreference.system;
+  }
 
   AppMode _parseMode(String? v) => v == 'rich' ? AppMode.rich : AppMode.flow;
 

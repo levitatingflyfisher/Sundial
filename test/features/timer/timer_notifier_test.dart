@@ -83,6 +83,30 @@ void main() {
           reason: 'auto-stop must persist the session, not keep it only in memory');
     });
 
+    test('undoing a discard never clobbers a timer started since', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        appDatabaseProvider
+            .overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+      ]);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(timerNotifierProvider.notifier);
+      await notifier.start();
+      final draft = await notifier.buildDraftSession();
+      notifier.discard();
+      await notifier.start();
+      notifier.restoreDiscarded(draft);
+      expect(container.read(timerNotifierProvider), isA<TimerRunning>());
+
+      await notifier.pause();
+      notifier.discard();
+      notifier.restoreDiscarded(draft);
+      expect(container.read(timerNotifierProvider), isA<TimerStopped>());
+    });
+
     test('confirmSession surfaces a failed write and keeps the session',
         () async {
       SharedPreferences.setMockInitialValues({});

@@ -56,6 +56,9 @@ void main() async {
             },
           ),
         ),
+        // Web PWAs share one github.io origin: keep Sundial's recovery words
+        // in Sundial's own key-store namespace (no-op on native).
+        appScopedKeyStoreOverride(),
         backupSerializerProvider.overrideWith(
           (ref) =>
               SundialBackupSerializer(ref.watch(appDatabaseProvider)),
@@ -168,15 +171,9 @@ class _SundialAppState extends ConsumerState<SundialApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      // No app-wide width box: each screen caps its own content with OhPage
+      // (640dp, centred), so app bars and bottom bars stay full width.
       routerConfig: router,
-      builder: (context, child) {
-        final inner = child ?? const SizedBox.shrink();
-        if (MediaQuery.of(context).size.width <= 760) return inner;
-        return ColoredBox(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          child: Center(child: SizedBox(width: 760, child: inner)),
-        );
-      },
     );
   }
 }

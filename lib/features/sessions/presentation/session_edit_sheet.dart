@@ -4,6 +4,7 @@ import 'package:sundial/core/error/failures.dart';
 import 'package:drift/drift.dart' hide Table, Column;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -75,6 +76,13 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
   late DateTime _date;
   Session? _session;
 
+  // The values the editor opened with, so back knows whether there is any
+  // typed work to keep.
+  late final (int, int, String, DateTime) _initial;
+  bool _saving = false;
+
+  bool get _dirty => (_hours, _minutes, _notes, _date) != _initial;
+
   late FixedExtentScrollController _hoursController;
   late FixedExtentScrollController _minutesController;
 
@@ -96,6 +104,7 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
       _notes = '';
       _date = DateTime.now();
     }
+    _initial = (_hours, _minutes, _notes, _date);
     _hoursController = FixedExtentScrollController(initialItem: _hours);
     _minutesController = FixedExtentScrollController(initialItem: _minutes);
   }
@@ -107,69 +116,106 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
     super.dispose();
   }
 
+  /// Back (app bar or system) keeps typed work: it saves through the same
+  /// path as Save instead of dropping the edit (about-face-11), and it never
+  /// asks "Save changes?". An edit that cannot be saved (a zero duration)
+  /// leaves the stored session as it was and says so.
+  Future<void> _onBack() async {
+    if (_saving) return;
+    final durationSecs = _hours * 3600 + _minutes * 60;
+    if (durationSecs <= 0) {
+      final messenger = ScaffoldMessenger.of(context);
+      context.pop();
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Edit not saved: a session needs a duration.'),
+      ));
+      return;
+    }
+    final saved = await _save(fromBack: true);
+    if (saved || !mounted) return;
+    // A failed save must not trap the user behind back (every retry would
+    // fail the same way). Leave, and say so. On an unsaved draft nothing is
+    // lost: confirmSession keeps it in the timer for another try.
+    final messenger = ScaffoldMessenger.of(context);
+    context.pop();
+    messenger.showSnackBar(const SnackBar(
+      content: Text('Edit not saved: the session couldn’t be written.'),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Session'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          Text('Duration', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Edit Session'),
+          actions: [
+            TextButton(
+              onPressed: _save,
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+        body: OhPage(
+          padding: EdgeInsets.zero,
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
-              _SpinnerPicker(
-                controller: _hoursController,
-                itemCount: 24,
-                label: 'h',
-                onChanged: (v) => setState(() => _hours = v),
+              Text('Duration', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _SpinnerPicker(
+                    controller: _hoursController,
+                    itemCount: 24,
+                    label: 'h',
+                    onChanged: (v) => setState(() => _hours = v),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Text(
+                      ':',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  _SpinnerPicker(
+                    controller: _minutesController,
+                    itemCount: 60,
+                    label: 'm',
+                    onChanged: (v) => setState(() => _minutes = v),
+                  ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(
-                  ':',
-                  style: Theme.of(context).textTheme.headlineMedium,
+              const SizedBox(height: AppSpacing.lg),
+              Text('Date', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_dateFmt.format(_date)),
+                trailing: const Icon(LucideIcons.calendarDays),
+                onTap: _pickDate,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Notes (optional)',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
+              TextFormField(
+                initialValue: _notes,
+                maxLength: 100,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. park day with co-op',
+                  border: OutlineInputBorder(),
                 ),
-              ),
-              _SpinnerPicker(
-                controller: _minutesController,
-                itemCount: 60,
-                label: 'm',
-                onChanged: (v) => setState(() => _minutes = v),
+                onChanged: (v) => setState(() => _notes = v),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Date', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppSpacing.sm),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(_dateFmt.format(_date)),
-            trailing: const Icon(LucideIcons.calendarDays),
-            onTap: _pickDate,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Notes (optional)', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppSpacing.sm),
-          TextFormField(
-            initialValue: _notes,
-            maxLength: 100,
-            decoration: const InputDecoration(
-              hintText: 'e.g. park day with co-op',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (v) => _notes = v,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -184,19 +230,22 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _save() async {
+  /// Saves and closes the sheet. Returns whether the write succeeded. From
+  /// the Save action a failure keeps the sheet open to retry; from back
+  /// ([fromBack]) the caller decides.
+  Future<bool> _save({bool fromBack = false}) async {
     final durationSecs = _hours * 3600 + _minutes * 60;
     if (durationSecs <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Duration must be greater than 0')),
       );
-      return;
+      return false;
     }
     if (durationSecs > 86400) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Duration cannot exceed 24 hours')),
       );
-      return;
+      return false;
     }
 
     final now = DateTime.now();
@@ -212,11 +261,17 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
       nowMs: now.millisecondsSinceEpoch,
     );
 
+    _saving = true;
     final timerState = ref.read(timerNotifierProvider);
     final Either<StorageFailure, Unit> result;
-    if (timerState is TimerStopped) {
-      result =
-          await ref.read(timerNotifierProvider.notifier).confirmSession(updated);
+    // Only the draft itself goes through confirmSession. Editing some other
+    // session while a draft waits must not save it as "the draft" and clear
+    // the real one.
+    if (timerState is TimerStopped &&
+        timerState.session.id == widget.sessionId) {
+      result = await ref
+          .read(timerNotifierProvider.notifier)
+          .confirmSession(updated);
     } else {
       result = await ref.read(sessionsRepositoryProvider).saveSession(updated);
       if (result.isRight()) {
@@ -225,19 +280,31 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
         if (newBadges.isNotEmpty) {
           ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
         }
-        await ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
         await ref.read(timerNotifierProvider.notifier).refreshWidget(dateDay);
       }
     }
 
-    if (!context.mounted) return;
+    _saving = false;
+    if (!mounted) return result.isRight();
     // Don't silently pop on a failed write — surface it and keep the sheet open
     // so the user can retry instead of losing the session.
-    result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Couldn't save the session: ${failure.message}")),
-      ),
-      (_) => context.pop(),
+    // failure.message is the raw storage exception: log it, never show it.
+    return result.fold(
+      (failure) {
+        debugPrint("Couldn't save the session: ${failure.message}");
+        if (!fromBack) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Couldn’t save the session. Please try again."),
+            ),
+          );
+        }
+        return false;
+      },
+      (_) {
+        context.pop();
+        return true;
+      },
     );
   }
 }

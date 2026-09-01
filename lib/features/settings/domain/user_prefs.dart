@@ -1,3 +1,5 @@
+import 'package:openhearth_design/openhearth_design.dart';
+
 enum AppMode { flow, rich }
 
 enum FlowTimerStyle { arc, gnomon, dualRing }
@@ -14,7 +16,7 @@ class UserPrefs {
     this.flowTimerStyle = FlowTimerStyle.gnomon,
     this.autoStopEnabled = false,
     this.autoStopThresholdHours = 2,
-    this.isDarkMode = false,
+    this.themeMode = OhThemeModePreference.defaultValue,
     this.timeFormat = TimeFormat.h12,
     this.weekStart = WeekStart.sunday,
   });
@@ -25,7 +27,8 @@ class UserPrefs {
   final FlowTimerStyle flowTimerStyle;
   final bool autoStopEnabled;
   final int autoStopThresholdHours;
-  final bool isDarkMode;
+  /// Light, dark, or follow the phone (the default).
+  final OhThemeModePreference themeMode;
   final TimeFormat timeFormat;
   final WeekStart weekStart;
 }

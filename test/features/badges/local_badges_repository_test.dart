@@ -63,4 +63,20 @@ void main() {
       expect(awarded, isEmpty);
     });
   });
+
+  // Operator ruling: nothing earned is ever revoked. Revocation used to run
+  // on every delete, every edit-save and inside StatsScreen's initState, so
+  // correcting an over-logged session silently took a badge back (gamers-03).
+  group('earned badges are kept', () {
+    test('deleting the sessions behind a badge keeps the badge', () async {
+      await sessionsRepo.saveSession(_makeSession('s1', 36001, '2026-03-28'));
+      await badgesRepo.checkAndAwardMilestones();
+      await sessionsRepo.deleteSession('s1');
+      await badgesRepo.checkAndAwardMilestones();
+
+      final tenHour = (await badgesRepo.watchAllBadges().first)
+          .singleWhere((b) => b.thresholdHours == 10);
+      expect(tenHour.earnedAt, isNotNull);
+    });
+  });
 }

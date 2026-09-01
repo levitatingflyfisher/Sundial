@@ -47,12 +47,15 @@ never guesses from location or motion. See
 ## Goals and pacing
 
 You set an **annual goal** (default **1000 hours**) and, optionally, a **monthly**
-one. Progress is shown as a fraction of the goal and a progress bar whose color
-*informs* rather than shames:
+one. Progress is shown as a fraction of the goal, and **pace** compares what you
+have logged with what an even spread of the goal expects by today (goal × day of
+the period ÷ days in the period, today counted). Timer, Flow and Stats say it in
+words ("On pace", "12h behind pace"), and the bar's color *informs* rather than
+shames:
 
-- on pace → the calm/primary color,
-- slightly behind → a softer shade,
-- behind → **amber** — never red.
+- on pace (short by no more than one day's share) → the calm/primary color,
+- slightly behind (up to a week's share) → a softer shade,
+- behind → **amber**, never red.
 
 There are no streak counters, no percentages framed as failure, and no "you're
 falling behind" notifications. The number is there; the judgment is not.
@@ -64,13 +67,11 @@ thresholds (10, 25, 50, 75, 100, then 200…1000 hours); crossing one **awards**
 badge, records an `earnedAt` timestamp, and fires a confetti animation. There is no
 nag to share or to keep going — just the moment.
 
-**A behavior worth knowing (and a grain-of-salt note):** badges are also **revoked**
-if the all-time total later drops back *below* a threshold — for example after you
-delete or shorten sessions (`revokeIfBelowMilestones`). Some product notes describe
-milestones as permanent; the code as shipped does not. Treat the code as the source
-of truth here, and if permanence is the intent, that is the gap to close. The
-invariant the code actually maintains is: *a badge is earned iff the all-time total
-is ≥ its threshold* — recomputed, not latched.
+**Earned is earned.** A badge, once awarded, is never taken back: deleting or
+shortening sessions later (correcting an honest mistake) does not un-earn it. The
+invariant is *latched*: a badge is awarded the first time the all-time total reaches
+its threshold, and `earnedAt` is never cleared afterwards (operator ruling; pinned by
+`local_badges_repository_test.dart` and `stats_screen_test.dart`).
 
 Badges survive a backup round-trip: only *earned* badges (id + `earnedAt`) are
 written to an export, and a restore re-marks known ids, skipping any it doesn't

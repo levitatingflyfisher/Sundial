@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sanctuary_auth_core/sanctuary_auth_core.dart';
 import 'package:sanctuary_backup_ui/sanctuary_backup_ui.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,6 +19,7 @@ import 'package:sundial/features/export/data/json_import_impl.dart';
 import 'package:sundial/features/export/data/pdf_export_impl.dart';
 import 'package:sundial/features/export/data/plaintext_export_impl.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
+import 'package:sundial/shared/widgets/section_header.dart';
 
 /// Whether this platform can write an export to a device file — a Riverpod
 /// seam over the conditional-import trio (backup_file_save*.dart), so widget
@@ -37,87 +39,89 @@ class ExportScreen extends ConsumerWidget {
     final canSaveToDevice = ref.watch(saveToDeviceSupportedProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Backup & Restore')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          // ── Import ──────────────────────────────────────────────────
-          ListTile(
-            leading: const Icon(LucideIcons.folderOpen),
-            title: const Text('Import from JSON'),
-            subtitle: const Text('Restore sessions from a backup file'),
-            trailing: const Icon(LucideIcons.chevronRight),
-            onTap: () => _importJson(context, ref),
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.lockKeyhole),
-            title: const Text('Restore from encrypted backup'),
-            subtitle: const Text('Load data from an .ohbk file'),
-            trailing: const Icon(LucideIcons.chevronRight),
-            onTap: () => _restoreEncrypted(context, ref),
-          ),
-          const Divider(height: AppSpacing.xl),
-          // ── Export ──────────────────────────────────────────────────
-          // F14: labelled "unencrypted" now that the encrypted backup
-          // section below offers a protected alternative — the security
-          // distinction was previously stated on only one side.
-          _ExportTile(
-            icon: LucideIcons.fileText,
-            title: 'Plaintext (.sundial)',
-            subtitle: 'Unencrypted, human-readable summary (export only)',
-            // Web can't write device files — hide Save there (same F15 rule
-            // as the .ohbk tile below) instead of offering a button that
-            // always ends in a "Save failed" snackbar. Share still works.
-            onSave: canSaveToDevice
-                ? () async {
-                    final r = await _buildPlaintext(ref);
-                    if (!context.mounted) return;
-                    await _saveLocally(context, r.$1, r.$2);
-                  }
-                : null,
-            onShare: () async {
-              final r = await _buildPlaintext(ref);
-              if (!context.mounted) return;
-              await _shareFile(context, r.$1, r.$2);
-            },
-          ),
-          _ExportTile(
-            icon: LucideIcons.braces,
-            title: 'JSON',
-            subtitle: 'Unencrypted, machine-readable backup',
-            onSave: canSaveToDevice
-                ? () async {
-                    final r = await _buildJson(ref);
-                    if (!context.mounted) return;
-                    await _saveLocally(context, r.$1, r.$2);
-                  }
-                : null,
-            onShare: () async {
-              final r = await _buildJson(ref);
-              if (!context.mounted) return;
-              await _shareFile(context, r.$1, r.$2);
-            },
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.file),
-            title: const Text('PDF'),
-            subtitle: const Text('Unencrypted, printable summary'),
-            trailing: IconButton(
-              icon: const Icon(LucideIcons.share2),
-              tooltip: 'Share',
-              onPressed: () => _exportPdf(context, ref),
+      body: OhPage(
+        padding: EdgeInsets.zero,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: [
+            const SectionHeader('Import'),
+            ListTile(
+              leading: const Icon(LucideIcons.folderOpen),
+              title: const Text('Import from JSON'),
+              subtitle: const Text('Restore sessions from a backup file'),
+              trailing: const Icon(LucideIcons.chevronRight),
+              onTap: () => _importJson(context, ref),
             ),
-          ),
-          const Divider(height: AppSpacing.xl),
-          // ── Encrypted backup (.ohbk) ───────────────────────────────
-          const _EncryptedBackupSection(),
-        ],
+            ListTile(
+              leading: const Icon(LucideIcons.lockKeyhole),
+              title: const Text('Restore from encrypted backup'),
+              subtitle: const Text('Load data from an .ohbk file'),
+              trailing: const Icon(LucideIcons.chevronRight),
+              onTap: () => _restoreEncrypted(context, ref),
+            ),
+            const SectionHeader('Export'),
+            // F14: labelled "unencrypted" now that the encrypted backup
+            // section below offers a protected alternative — the security
+            // distinction was previously stated on only one side.
+            _ExportTile(
+              icon: LucideIcons.fileText,
+              title: 'Plaintext (.sundial)',
+              subtitle: 'Unencrypted, human-readable summary (export only)',
+              // Web can't write device files — hide Save there (same F15 rule
+              // as the .ohbk tile below) instead of offering a button that
+              // always ends in a "Save failed" snackbar. Share still works.
+              onSave: canSaveToDevice
+                  ? () async {
+                      final r = await _buildPlaintext(ref);
+                      if (!context.mounted) return;
+                      await _saveLocally(context, r.$1, r.$2);
+                    }
+                  : null,
+              onShare: () async {
+                final r = await _buildPlaintext(ref);
+                if (!context.mounted) return;
+                await _shareFile(context, r.$1, r.$2);
+              },
+            ),
+            _ExportTile(
+              icon: LucideIcons.braces,
+              title: 'JSON',
+              subtitle: 'Unencrypted, machine-readable backup',
+              onSave: canSaveToDevice
+                  ? () async {
+                      final r = await _buildJson(ref);
+                      if (!context.mounted) return;
+                      await _saveLocally(context, r.$1, r.$2);
+                    }
+                  : null,
+              onShare: () async {
+                final r = await _buildJson(ref);
+                if (!context.mounted) return;
+                await _shareFile(context, r.$1, r.$2);
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.file),
+              title: const Text('PDF'),
+              subtitle: const Text('Unencrypted, printable summary'),
+              trailing: IconButton(
+                icon: const Icon(LucideIcons.share2),
+                tooltip: 'Share',
+                onPressed: () => _exportPdf(context, ref),
+              ),
+            ),
+            // Draws its own heading, in every auth state (dmmt-08).
+            const _EncryptedBackupSection(),
+          ],
+        ),
       ),
     );
   }
 
   // ── Builders ─────────────────────────────────────────────────────
 
-  Future<(String content, String filename)> _buildPlaintext(WidgetRef ref) async {
+  Future<(String content, String filename)> _buildPlaintext(
+      WidgetRef ref) async {
     final sessions =
         await ref.read(sessionsRepositoryProvider).watchAllSessions().first;
     final prefs = await ref.read(settingsRepositoryProvider).getUserPrefs();
@@ -160,10 +164,11 @@ class ExportScreen extends ConsumerWidget {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Save failed: $e\n$st');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text('Save failed. ${ohFriendlyErrorMessage(e)}')),
         );
       }
     }
@@ -181,18 +186,18 @@ class ExportScreen extends ConsumerWidget {
         [
           XFile.fromData(
             Uint8List.fromList(utf8.encode(content)),
-            mimeType: filename.endsWith('.json')
-                ? 'application/json'
-                : 'text/plain',
+            mimeType:
+                filename.endsWith('.json') ? 'application/json' : 'text/plain',
           ),
         ],
         text: 'Sundial backup',
         fileNameOverrides: [filename],
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Share failed: $e\n$st');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Share failed: $e')),
+          SnackBar(content: Text('Share failed. ${ohFriendlyErrorMessage(e)}')),
         );
       }
     }
@@ -205,10 +210,13 @@ class ExportScreen extends ConsumerWidget {
       final prefs = await ref.read(settingsRepositoryProvider).getUserPrefs();
       await PdfExporter()
           .sharePdf(sessions, annualGoalHours: prefs.annualGoalHours);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('PDF export failed: $e\n$st');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
+          SnackBar(
+            content: Text('Export failed. ${ohFriendlyErrorMessage(e)}'),
+          ),
         );
       }
     }
@@ -233,7 +241,7 @@ class ExportScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Couldn't read the selected file. Try again."),
+            content: Text("Couldn’t read the selected file. Try again."),
           ),
         );
       }
@@ -253,8 +261,7 @@ class ExportScreen extends ConsumerWidget {
         final r = await repo.saveSession(session);
         if (r.isRight()) imported++;
       }
-      // Restore earned badges last, after sessions exist, so hour totals are
-      // consistent for any downstream revoke-if-below checks.
+      // Restore earned badges last, after sessions exist.
       if (payload.earnedBadges.isNotEmpty) {
         await ref
             .read(badgesRepositoryProvider)
@@ -278,10 +285,12 @@ class ExportScreen extends ConsumerWidget {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Import failed: $e\n$st');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e')),
+          SnackBar(
+              content: Text('Import failed. ${ohFriendlyErrorMessage(e)}')),
         );
       }
     }
@@ -312,22 +321,48 @@ class _EncryptedBackupSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authAsync = ref.watch(authNotifierProvider);
 
-    return authAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (authState) => Column(children: [
-        _stateTile(context, ref, authState),
+    // The heading is drawn in every state, so it never introduces an empty
+    // space while the key store loads or after it fails (dmmt-08).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader('Encrypted backup'),
+        ...authAsync.when(
+          loading: () => const [
+            ListTile(
+              leading: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              title: Text('Checking backup status…'),
+            ),
+          ],
+          error: (e, st) {
+            debugPrint('Backup status failed: $e\n$st');
+            return [
+              ListTile(
+                leading: const Icon(LucideIcons.triangleAlert),
+                title: const Text("Couldn’t check backup status."),
+                trailing: TextButton(
+                  onPressed: () => ref.invalidate(authNotifierProvider),
+                  child: const Text('Try again'),
+                ),
+              ),
+            ];
+          },
+          data: (authState) => [_stateTile(context, ref, authState)],
+        ),
         // The snapshot vault (BACKUP_RETENTION_SPEC §2.A) — reachable in
         // every auth state: exports and restores populate it regardless.
         ListTile(
           leading: const Icon(LucideIcons.history),
           title: const Text('Previous backups'),
           subtitle:
-              const Text('Snapshots kept on this device — restore or pin'),
+              const Text('Snapshots kept on this device. Restore or pin one.'),
           trailing: const Icon(LucideIcons.chevronRight),
           onTap: () => showBackupVaultSheet(context),
         ),
-      ]),
+      ],
     );
   }
 
@@ -357,36 +392,36 @@ class _EncryptedBackupSection extends ConsumerWidget {
     }
 
     return ListTile(
-          leading: const Icon(LucideIcons.shieldCheck),
-          title: const Text('Encrypted backup (.ohbk)'),
-          subtitle: authState.lastBackupAt != null
-              ? Text('Last backup: ${_formatDate(authState.lastBackupAt!)}')
-              : const Text(
-                  'Save an encrypted copy of your sessions, profiles, and badges'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // F15: dart:io file writes aren't available on web — hide
-              // Save there rather than offer an affordance that always
-              // fails; Share (bytes-only, web-safe) remains available.
-              // Read through the provider seam (not the raw trio getter)
-              // so tests can fake the web resolution.
-              if (ref.watch(saveToDeviceSupportedProvider))
-                IconButton(
-                  icon: const Icon(LucideIcons.download, size: 20),
-                  tooltip: 'Save to device',
-                  onPressed: () => _saveToDevice(context, ref),
-                ),
-              IconButton(
-                icon: const Icon(LucideIcons.share2, size: 20),
-                tooltip: 'Share',
-                // Share goes through BackupFlow's tested export orchestration
-                // verbatim — only the "Save to device" branch is app-specific.
-                onPressed: () => const BackupFlow().runExport(context, ref),
-              ),
-            ],
+      leading: const Icon(LucideIcons.shieldCheck),
+      title: const Text('Encrypted backup (.ohbk)'),
+      subtitle: authState.lastBackupAt != null
+          ? Text('Last backup: ${_formatDate(authState.lastBackupAt!)}')
+          : const Text(
+              'Save an encrypted copy of your sessions, profiles, and badges'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // F15: dart:io file writes aren't available on web — hide
+          // Save there rather than offer an affordance that always
+          // fails; Share (bytes-only, web-safe) remains available.
+          // Read through the provider seam (not the raw trio getter)
+          // so tests can fake the web resolution.
+          if (ref.watch(saveToDeviceSupportedProvider))
+            IconButton(
+              icon: const Icon(LucideIcons.download, size: 20),
+              tooltip: 'Save to device',
+              onPressed: () => _saveToDevice(context, ref),
+            ),
+          IconButton(
+            icon: const Icon(LucideIcons.share2, size: 20),
+            tooltip: 'Share',
+            // Share goes through BackupFlow's tested export orchestration
+            // verbatim — only the "Save to device" branch is app-specific.
+            onPressed: () => const BackupFlow().runExport(context, ref),
           ),
-        );
+        ],
+      ),
+    );
   }
 
   // Both the seed-generate/show/re-entry-confirm flow and the wrong-words
@@ -411,8 +446,7 @@ class _EncryptedBackupSection extends ConsumerWidget {
     if (result == null || !context.mounted) return;
 
     try {
-      final path =
-          await saveBackupBytesToDevice(result.bytes, result.filename);
+      final path = await saveBackupBytesToDevice(result.bytes, result.filename);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -446,12 +480,12 @@ class _EncryptedBackupSection extends ConsumerWidget {
 String backupSaveErrorMessage(Object error) {
   final text = error.toString();
   if (text.contains('Permission') || text.contains('permission')) {
-    return "Couldn't save — storage permission was denied. Try Share instead.";
+    return "Couldn’t save: storage permission was denied. Try Share instead.";
   }
   if (text.contains('MissingPluginException')) {
-    return "Saving to device isn't available here. Try Share instead.";
+    return "Saving to device isn’t available here. Try Share instead.";
   }
-  return "Couldn't save the backup to this device. Try Share instead.";
+  return "Couldn’t save the backup to this device. Try Share instead.";
 }
 
 // ── Export tile with Save + Share buttons ──────────────────────────

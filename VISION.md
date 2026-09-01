@@ -83,10 +83,12 @@ before you rely on it. As of `0.1.0`:
   different day), delete, and reverse-chronological history.
 - Stats: Today / This Month / This Year / All-Time, a cumulative chart, a heatmap,
   and a per-month breakdown — all filterable by profile.
-- Goals (annual default 1000h + optional monthly) with amber-when-behind pacing.
+- Goals (annual default 1000h + optional monthly) with **computed** pace: actual against
+  expected-to-date (goal × day of period ÷ days in period), said in words on Timer,
+  Flow and Stats, and amber only when genuinely behind (`test/features/stats/pace_on_screen_test.dart`).
 - Badges with a confetti unlock; **multiple local profiles** for a household.
 - Export (JSON / PDF / plain text) and JSON import, robust to a bad row.
-- Focus and Full modes; dark mode; 12/24-hour and week-start preferences.
+- Focus and Full modes; light, dark or follow-the-phone theme (one control, in the app bar); 12/24-hour and week-start preferences.
 - ~30+ test files across unit, widget, golden/visual, and an integration flow.
   Fonts are bundled (no Google Fonts egress); ships as an installable PWA and an
   Android APK.
@@ -101,11 +103,10 @@ before you rely on it. As of `0.1.0`:
 - **iOS**: the launcher-icon config and release pipeline target Android and web
   only; there is no iOS build story yet.
 
-**A caveat worth naming (a good grain-of-salt example):** badges are currently
-*revoked* if your all-time total drops back below a threshold — e.g. after deleting
-or shortening sessions. Some product notes describe milestones as permanent; the
-code as shipped does not treat them that way. Trust the code, and if permanence is
-the intent, that gap is the first thing to close.
+**A caveat that was closed (a good grain-of-salt example):** badges used to be
+*revoked* when the all-time total dropped back below a threshold, even from inside
+the Stats screen's build, while product notes called milestones permanent. The code
+now matches the notes: nothing earned is ever revoked, and two tests pin it.
 
 ## Horizons (problems, not a feature list)
 

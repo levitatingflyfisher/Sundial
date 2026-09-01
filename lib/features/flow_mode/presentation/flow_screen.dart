@@ -1,16 +1,27 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
+import 'package:sundial/features/stats/domain/pace.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
 import 'package:sundial/features/timer/presentation/timer_notifier.dart';
+import 'package:sundial/features/timer/presentation/unsaved_session_panel.dart';
+import 'package:sundial/shared/extensions/duration_ext.dart';
 import 'package:sundial/shared/widgets/mode_pill.dart';
 import 'package:sundial/shared/widgets/profile_chip_row.dart';
-import 'package:sundial/shared/widgets/theme_pill.dart';
+import 'package:sundial/shared/widgets/theme_toggle.dart';
 import 'dot_row.dart';
 import 'sundial_face.dart';
+
+/// Seconds outside so far this calendar year: one stream for both the face
+/// (Dual Ring outer ring) and the year line under the controls.
+final _yearSecondsProvider = StreamProvider.autoDispose<int>((ref) => ref
+    .watch(sessionsRepositoryProvider)
+    .watchSecondsForYear(clock.now().year.toString()));
 
 String _dateKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -29,45 +40,65 @@ class FlowScreen extends ConsumerWidget {
     final style = prefs?.flowTimerStyle ?? FlowTimerStyle.gnomon;
 
     return Scaffold(
+      bottomNavigationBar:
+          OhUndoBar(controller: ref.watch(timerUndoControllerProvider)),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const SizedBox.shrink(),
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 8),
-            child: ThemePill(),
+            child: ThemeToggle(),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(),
-            const ProfileChipRow(),
-            const SizedBox(height: 8),
-            _DotRowSection(),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: AspectRatio(
-                aspectRatio: 240 / 200,
-                child: SundialFace(
-                  elapsed: notifier.elapsed,
-                  style: style,
-                  isRunning: timerState is TimerRunning,
-                  annualGoalHours: annualGoal,
+      body: OhPage(
+        padding: EdgeInsets.zero,
+        // Centred when it fits, scrollable when it does not: at large text
+        // on a small phone the old Column + Spacer layout pushed START off
+        // the bottom with no way to reach it (360dp x 1.3 sweep).
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    const ProfileChipRow(),
+                    const SizedBox(height: 8),
+                    _DotRowSection(),
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: AspectRatio(
+                        aspectRatio: 240 / 200,
+                        child: SundialFace(
+                          elapsed: notifier.elapsed,
+                          style: style,
+                          isRunning: timerState is TimerRunning,
+                          annualGoalHours: annualGoal,
+                          yearTotal: Duration(
+                            seconds:
+                                ref.watch(_yearSecondsProvider).valueOrNull ??
+                                    0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _FlowControls(state: timerState, notifier: notifier),
+                    const SizedBox(height: 16),
+                    _YearStatus(annualGoal: annualGoal),
+                    const SizedBox(height: 24),
+                    const ModePill(),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            _FlowControls(state: timerState, notifier: notifier),
-            const SizedBox(height: 16),
-            _YearStatus(annualGoal: annualGoal),
-            const SizedBox(height: 24),
-            const ModePill(),
-            const Spacer(),
-          ],
+          ),
         ),
       ),
     );
@@ -180,21 +211,8 @@ class _FlowControls extends StatelessWidget {
             ),
           ],
         ),
-      TimerStopped(:final session) => Column(
-          children: [
-            FilledButton(
-              onPressed: () => context.push(
-                '/sessions/${session.id}/edit',
-                extra: session,
-              ),
-              child: const Text('Review & Save'),
-            ),
-            TextButton(
-              onPressed: notifier.discard,
-              child: const Text('Discard'),
-            ),
-          ],
-        ),
+      // Reached when an auto-stop's save failed and the draft was kept.
+      TimerStopped(:final session) => UnsavedSessionPanel(session: session),
     };
   }
 }
@@ -205,21 +223,15 @@ class _YearStatus extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final year = DateTime.now().year.toString();
-    final secsStream =
-        ref.watch(sessionsRepositoryProvider).watchSecondsForYear(year);
-
-    return StreamBuilder<int>(
-      stream: secsStream,
-      builder: (context, snap) {
-        final totalHours = (snap.data ?? 0) ~/ 3600;
-        return Text(
-          '${totalHours}h / ${annualGoal}h this year',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        );
-      },
+    final done =
+        Duration(seconds: ref.watch(_yearSecondsProvider).valueOrNull ?? 0);
+    final pace = yearPace(done: done, goalHours: annualGoal, now: clock.now());
+    return Text(
+      '${done.toHoursLabel()} / ${annualGoal}h this year · ${pace.phrase}',
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
     );
   }
 }

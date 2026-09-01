@@ -1,6 +1,7 @@
 // lib/core/router/app_shell.dart
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -9,7 +10,7 @@ import 'package:sundial/features/flow_mode/presentation/flow_screen.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
 import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/widgets/mode_pill.dart';
-import 'package:sundial/shared/widgets/theme_pill.dart';
+import 'package:sundial/shared/widgets/theme_toggle.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
@@ -55,8 +56,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${topBadge.thresholdHours}h milestone — '
-            '${topBadge.thresholdHours} hours outside this year',
+            // Badge thresholds are all-time totals, so the line says so
+            // (it used to claim "this year", badass-02).
+            '${topBadge.thresholdHours}h milestone: '
+            '${topBadge.thresholdHours} hours outside, all time',
           ),
           duration: const Duration(seconds: 4),
           behavior: SnackBarBehavior.floating,
@@ -132,11 +135,13 @@ class _RichShell extends StatelessWidget {
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 8),
-            child: ThemePill(),
+            child: ThemeToggle(),
           ),
         ],
       ),
-      body: child,
+      // Cap and centre the tab content on tablets and in the browser; the
+      // app bar and bottom bar stay full width.
+      body: OhPage(padding: EdgeInsets.zero, child: child),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

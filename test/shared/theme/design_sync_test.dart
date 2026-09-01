@@ -4,46 +4,92 @@ import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/theme/app_theme.dart';
 
-/// Tier-T design sync: Sundial adopts openhearth_design tokens ONLY where they
-/// are byte-identical to what it already rendered. These assertions are the
-/// zero-visual-change proof for the swap — if either side drifts, this fails
-/// before any golden does.
+/// Tier-T design sync: Sundial renders openhearth_design's type ladder and
+/// aliases the canonical colour tokens it shares. These assertions pin the
+/// exact values the goldens were approved with — if either side drifts, this
+/// fails before any golden does, naming the role that moved.
+const _pkg = 'openhearth_design';
+
 void main() {
   group('typography sync', () {
     test(
-        'both themes use OhTypography.materialTextTheme, byte-identical to the '
-        'ladder the goldens were rendered with', () {
-      // The canonical ladder must be the exact TextTheme Sundial hand-rolled
-      // (Lora 57/45/36/32/28/24 + Nunito title/body/label, family+size+weight
-      // only). Spelled out per-role so a drift names the role that moved.
+        'both themes use OhTypography.materialTextTheme, the 0.7.0 ladder the '
+        'goldens were rendered with', () {
+      // The canonical ladder as of openhearth_design 0.7.0 (one ~1.2 ladder:
+      // 13/16/19/23/28/33/40/48/57), family+size+weight only. Spelled out
+      // per-role so a drift names the role that moved and forces a golden
+      // re-approval rather than slipping in unseen. Since 0.7.2 the families
+      // are openhearth_design's own package fonts (Sundial no longer bundles
+      // its own Lora/Nunito copy): `package:` must be set here too, or the
+      // TextStyle's internal `_package` field won't match, even though the
+      // resolved `fontFamily` string looks identical when printed.
       const expected = <String, TextStyle>{
         'displayLarge': TextStyle(
-            fontFamily: 'Lora', fontSize: 57, fontWeight: FontWeight.w700),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 57,
+            fontWeight: FontWeight.w700),
         'displayMedium': TextStyle(
-            fontFamily: 'Lora', fontSize: 45, fontWeight: FontWeight.w700),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 48,
+            fontWeight: FontWeight.w700),
         'displaySmall': TextStyle(
-            fontFamily: 'Lora', fontSize: 36, fontWeight: FontWeight.w700),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 40,
+            fontWeight: FontWeight.w700),
         'headlineLarge': TextStyle(
-            fontFamily: 'Lora', fontSize: 32, fontWeight: FontWeight.w700),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 33,
+            fontWeight: FontWeight.w700),
         'headlineMedium': TextStyle(
-            fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.w600),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 28,
+            fontWeight: FontWeight.w700),
         'headlineSmall': TextStyle(
-            fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.w600),
+            fontFamily: 'Lora',
+            package: _pkg,
+            fontSize: 23,
+            fontWeight: FontWeight.w700),
         'titleLarge': TextStyle(
-            fontFamily: 'Nunito', fontSize: 22, fontWeight: FontWeight.w700),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 19,
+            fontWeight: FontWeight.w700),
         'titleMedium': TextStyle(
-            fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w600),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 16,
+            fontWeight: FontWeight.w600),
         'titleSmall': TextStyle(
-            fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600),
-        'bodyLarge': TextStyle(fontFamily: 'Nunito', fontSize: 16),
-        'bodyMedium': TextStyle(fontFamily: 'Nunito', fontSize: 14),
-        'bodySmall': TextStyle(fontFamily: 'Nunito', fontSize: 12),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 13,
+            fontWeight: FontWeight.w700),
+        'bodyLarge':
+            TextStyle(fontFamily: 'Nunito', package: _pkg, fontSize: 19),
+        'bodyMedium':
+            TextStyle(fontFamily: 'Nunito', package: _pkg, fontSize: 16),
+        'bodySmall':
+            TextStyle(fontFamily: 'Nunito', package: _pkg, fontSize: 13),
         'labelLarge': TextStyle(
-            fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 16,
+            fontWeight: FontWeight.w600),
         'labelMedium': TextStyle(
-            fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.w500),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 13,
+            fontWeight: FontWeight.w600),
         'labelSmall': TextStyle(
-            fontFamily: 'Nunito', fontSize: 11, fontWeight: FontWeight.w500),
+            fontFamily: 'Nunito',
+            package: _pkg,
+            fontSize: 13,
+            fontWeight: FontWeight.w500),
       };
 
       const canonical = OhTypography.materialTextTheme;

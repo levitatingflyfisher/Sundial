@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/shared/theme/app_colors.dart';
@@ -18,48 +19,75 @@ final profileColors = [
   0xFFB56B8E, // rose
 ];
 
-class ProfilesScreen extends ConsumerWidget {
+class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilesScreen> createState() => _ProfilesScreenState();
+}
+
+class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
+  // Removing a person is a deliberate tap, so it does not ask; it offers an
+  // Undo that never times out (fleet delete ruling). The offer lasts until
+  // the person acts, removes someone else, or leaves this screen.
+  final _undo = OhUndoController();
+
+  @override
+  void dispose() {
+    _undo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profilesAsync = ref.watch(profilesListProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('People')),
-      body: profilesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (profiles) => ListView.separated(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: profiles.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, i) {
-            final p = profiles[i];
-            final canDelete = profiles.length > 1;
-            return ListTile(
-              leading: _ProfileAvatar(profile: p, size: 36),
-              title: Text(p.name),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(LucideIcons.pencil, size: 18),
-                    onPressed: () => _showEditSheet(context, ref, p),
-                  ),
-                  if (canDelete)
+      body: OhPage(
+        padding: EdgeInsets.zero,
+        child: profilesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => OhErrorState.fromError(
+            e,
+            stackTrace: st,
+            title: "People didn’t load",
+            onRetry: () => ref.invalidate(profilesListProvider),
+          ),
+          data: (profiles) => ListView.separated(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            itemCount: profiles.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final p = profiles[i];
+              final canDelete = profiles.length > 1;
+              return ListTile(
+                leading: _ProfileAvatar(profile: p, size: 36),
+                title: Text(p.name),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     IconButton(
-                      icon: Icon(LucideIcons.trash2,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.error),
-                      onPressed: () => _confirmDelete(context, ref, p),
+                      icon: const Icon(LucideIcons.pencil, size: 18),
+                      tooltip: 'Edit ${p.name}',
+                      onPressed: () => _showEditSheet(context, ref, p),
                     ),
-                ],
-              ),
-            );
-          },
+                    if (canDelete)
+                      IconButton(
+                        icon: Icon(LucideIcons.trash2,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.error),
+                        tooltip: 'Remove ${p.name}',
+                        onPressed: () => _remove(p),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
+      bottomNavigationBar: OhUndoBar(controller: _undo),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showEditSheet(context, ref, null),
         child: const Icon(LucideIcons.plus),
@@ -76,35 +104,25 @@ class ProfilesScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, Profile p) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Remove ${p.name}?'),
-        content: const Text(
-            'Their sessions will remain in history but won\'t be linked to a person.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(profilesRepositoryProvider).deleteProfile(p.id);
-      // If deleted profile was active, fall back to Everyone (the sentinel
-      // that never gets deleted — 'default' is just another user profile).
-      if (ref.read(activeProfileIdProvider) == p.id) {
-        ref.read(activeProfileIdProvider.notifier).select(kEveryoneProfileId);
-      }
+  Future<void> _remove(Profile p) async {
+    final repo = ref.read(profilesRepositoryProvider);
+    final wasActive = ref.read(activeProfileIdProvider) == p.id;
+    final deleted = await repo.deleteProfile(p.id);
+    if (deleted == null) return;
+    // If deleted profile was active, fall back to Everyone (the sentinel
+    // that never gets deleted — 'default' is just another user profile).
+    if (wasActive) {
+      ref.read(activeProfileIdProvider.notifier).select(kEveryoneProfileId);
     }
+    _undo.show(
+      message: 'Removed ${p.name}. Their sessions stay in history.',
+      onUndo: () async {
+        await repo.restoreProfile(deleted);
+        if (wasActive) {
+          ref.read(activeProfileIdProvider.notifier).select(p.id);
+        }
+      },
+    );
   }
 }
 
@@ -142,10 +160,7 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
     final isNew = widget.existing == null;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
+      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
           AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -220,7 +235,8 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
-    final emoji = _emojiCtrl.text.trim().isEmpty ? null : _emojiCtrl.text.trim();
+    final emoji =
+        _emojiCtrl.text.trim().isEmpty ? null : _emojiCtrl.text.trim();
     final repo = ref.read(profilesRepositoryProvider);
     if (widget.existing == null) {
       await repo.createProfile(name: name, emoji: emoji, colorValue: _color);

@@ -169,11 +169,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // dad(1h) + everyone(30m) = 1.5h, rounded in the chart title to 2h
-      // via toStringAsFixed(0) which rounds half away from zero.
-      // Total label format: "${points.last.hours.toStringAsFixed(0)}h total"
-      expect(find.text('2h total'), findsOneWidget,
-          reason: '1.5h rounds to 2 via toStringAsFixed(0)');
+      // dad(1h) + everyone(30m) = 1h 30m. The header uses toHoursLabel
+      // like every other total; it used to round this up to "2h total",
+      // above what the tiles beside it said (dmmt-01).
+      expect(find.text('1h 30m total'), findsOneWidget);
       await _tearDown(tester);
     });
   });
@@ -203,5 +202,30 @@ void main() {
       expect(find.text('Last 12 months'), findsOneWidget);
       await _tearDown(tester);
     });
+  });
+
+  // Nothing earned is revoked (operator ruling). Opening Stats used to run
+  // revokeIfBelowMilestones() from initState, a state change with no user
+  // action behind it and no sign on screen (gamers-03).
+  testWidgets('opening Stats never takes back an earned badge',
+      (tester) async {
+    final db = await _seedDb();
+    final tenHour = (await db.select(db.badges).get())
+        .singleWhere((b) => b.thresholdHours == 10);
+    await (db.update(db.badges)..where((t) => t.id.equals(tenHour.id)))
+        .write(const BadgesCompanion(earnedAt: Value(1)));
+
+    await tester.pumpWidget(await _wrap(db, const StatsScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.runAsync(() => Future<void>.delayed(
+        const Duration(milliseconds: 50)));
+    await tester.pump();
+
+    final after = await tester.runAsync(() => (db.select(db.badges)
+          ..where((t) => t.id.equals(tenHour.id)))
+        .getSingle());
+    expect(after!.earnedAt, 1);
+    await _tearDown(tester);
   });
 }

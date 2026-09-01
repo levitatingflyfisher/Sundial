@@ -32,18 +32,6 @@ class LocalBadgesRepository implements BadgesRepository {
   }
 
   @override
-  Future<void> revokeIfBelowMilestones() async {
-    final totalSecs = await _sessionsDao.watchAllTimeSeconds().first;
-    final totalHours = totalSecs ~/ 3600;
-    final allBadges = await _badgesDao.getAll();
-    for (final badge in allBadges) {
-      if (badge.earnedAt != null && badge.thresholdHours > totalHours) {
-        await _badgesDao.markRevoked(badge.id);
-      }
-    }
-  }
-
-  @override
   Future<void> restoreEarnedBadges(Map<String, int> earnedByIdMs) async {
     final known = {for (final b in await _badgesDao.getAll()) b.id};
     for (final entry in earnedByIdMs.entries) {

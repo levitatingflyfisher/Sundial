@@ -6,8 +6,7 @@ abstract interface class BadgesRepository {
   /// Awards any newly crossed milestones. Returns newly awarded badges.
   Future<List<Badge>> checkAndAwardMilestones();
 
-  /// Revokes any badges whose threshold is now above the current total hours.
-  Future<void> revokeIfBelowMilestones();
+  // No revoke: nothing earned is ever taken back (operator ruling).
 
   /// Restores earned badge state from a backup, keyed by badge id → earnedAt ms.
   /// Unknown ids are skipped (old backups that predate newer milestones still

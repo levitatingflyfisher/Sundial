@@ -13,10 +13,11 @@ What's shipped, partial, or planned — grounded in the code as of `0.1.0`. Lege
 | Android widget + timer notification | Shipped | Platform channel in `main.dart` |
 | Manual entry ("Add Time") | Shipped | Any past date |
 | Session editing (duration / date / notes) | Shipped | No lock-out; retiming moves start/end/`dateDay` |
-| Delete session | Shipped | With confirm |
+| Delete session | Shipped | Swipe asks first, naming the session |
+| Remove a person | Shipped | Removes at once, with an Undo that stays until you leave the screen |
 | History timeline | Shipped | Reverse chronological, profile-filterable |
 | Session notes | Shipped | Short label, optional |
-| Goals (annual + optional monthly) | Shipped | Default 1000h/yr; amber-when-behind |
+| Goals (annual + optional monthly) | Shipped | Default 1000h/yr; pace computed against expected-to-date, amber only when behind |
 | Stats (today / month / year / all-time) | Shipped | Reactive off `Sessions` |
 | Cumulative chart | Shipped | |
 | Heatmap | Shipped | |
@@ -27,7 +28,7 @@ What's shipped, partial, or planned — grounded in the code as of `0.1.0`. Lege
 | Multiple profiles | Shipped | **Local** only — not accounts/sync |
 | Export: JSON / PDF / plain text | Shipped | |
 | Import: JSON | Shipped | Row-tolerant |
-| Preferences: dark mode, 12/24h, week start, timer style | Shipped | See [data-model.md](data-model.md) |
+| Preferences: theme (light / dark / follow phone, in the app bar), 12/24h, week start, timer style | Shipped | See [data-model.md](data-model.md) |
 | Onboarding (mode choice) | Shipped | |
 
 ## Sync & accounts
@@ -55,7 +56,7 @@ What's shipped, partial, or planned — grounded in the code as of `0.1.0`. Lege
 | Target | Status | Notes |
 |---|---|---|
 | Android | Shipped | APK build + release workflow |
-| Web (PWA) | Shipped | Drift on `sqlite3.wasm`; 760px-centered layout |
+| Web (PWA) | Shipped | Drift on `sqlite3.wasm`; content capped at 640dp and centred (`OhPage`) |
 | iOS | Planned | No build/signing/release pipeline today |
 | Desktop | Planned | Stretch |
 

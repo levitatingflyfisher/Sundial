@@ -95,8 +95,10 @@ flutter build web           # PWA (drift's sqlite3.wasm + drift_worker.js ship i
   a migration step), regenerate with `build_runner`, register the repository
   provider in `core/providers/core_providers.dart`, and add a route in
   `core/router/`.
-- **Web is centered at 760px** (`main.dart`) so the mobile layout reads well on a
-  desktop browser; keep new screens comfortable inside that width.
+- **Wide screens:** every top-level screen puts its body in `OhPage`
+  (openhearth_design), which caps the content at 640dp and centres it while
+  app bars and the bottom bar stay full width. A new screen does the same;
+  `test/core/page_width_test.dart` measures it at 1024dp.
 - **Android native controls**: the home-screen widget (`home_widget`) and the
   media-style timer notification talk to Dart over a platform channel handled in
   `main.dart` (`launchSource` / `timerAction`). Touch both sides when you change

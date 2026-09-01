@@ -272,7 +272,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       children: [
                         Icon(LucideIcons.sun, size: 48),
                         SizedBox(height: AppSpacing.md),
-                        Text('No sessions yet — go outside!'),
+                        Text('No sessions yet. Go outside!'),
                       ],
                     ),
                   );
@@ -280,7 +280,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
                 if (sessions.isEmpty) {
                   final reason = _query.isNotEmpty
-                      ? 'No sessions match "$_query"'
+                      ? 'No sessions match “$_query”'
                       : _filter == _DateFilter.thisWeek
                           ? 'No sessions this week'
                           : 'No sessions this month';
@@ -318,9 +318,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         await ref
                             .read(sessionsRepositoryProvider)
                             .deleteSession(s.id);
-                        await ref
-                            .read(badgesRepositoryProvider)
-                            .revokeIfBelowMilestones();
                         await ref
                             .read(timerNotifierProvider.notifier)
                             .refreshWidget(s.dateDay);
@@ -493,9 +490,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         await ref
                             .read(sessionsRepositoryProvider)
                             .deleteSession(s.id);
-                        await ref
-                            .read(badgesRepositoryProvider)
-                            .revokeIfBelowMilestones();
                         await ref
                             .read(timerNotifierProvider.notifier)
                             .refreshWidget(s.dateDay);

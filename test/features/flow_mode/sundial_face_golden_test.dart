@@ -12,6 +12,7 @@ void main() {
   group('SundialFace golden tests', () {
     testWidgets('Gnomon idle', (tester) async {
       await tester.pumpWidget(_wrap(const SundialFace(
+        yearTotal: Duration.zero,
         elapsed: Duration.zero,
         style: FlowTimerStyle.gnomon,
       )));
@@ -23,6 +24,7 @@ void main() {
 
     testWidgets('Gnomon running 1h23m', (tester) async {
       await tester.pumpWidget(_wrap(const SundialFace(
+        yearTotal: Duration.zero,
         elapsed: Duration(hours: 1, minutes: 23),
         style: FlowTimerStyle.gnomon,
         isRunning: true,
@@ -35,6 +37,7 @@ void main() {
 
     testWidgets('Arc running 1h23m', (tester) async {
       await tester.pumpWidget(_wrap(const SundialFace(
+        yearTotal: Duration.zero,
         elapsed: Duration(hours: 1, minutes: 23),
         style: FlowTimerStyle.arc,
         isRunning: true,
@@ -50,7 +53,7 @@ void main() {
         elapsed: Duration(hours: 1, minutes: 23),
         style: FlowTimerStyle.dualRing,
         isRunning: true,
-        yearTotalHours: 247,
+        yearTotal: Duration(hours: 247),
         annualGoalHours: 1000,
       )));
       await expectLater(

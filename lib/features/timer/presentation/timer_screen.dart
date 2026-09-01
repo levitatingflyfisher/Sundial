@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/core/providers/core_providers.dart';
+import 'package:sundial/features/stats/domain/pace.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
+import 'package:sundial/core/storage/app_database.dart' show Session;
 import 'package:sundial/features/timer/presentation/timer_notifier.dart';
+import 'package:sundial/features/timer/presentation/unsaved_session_panel.dart';
 import 'package:sundial/shared/extensions/duration_ext.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 import 'package:sundial/shared/theme/app_text_styles.dart';
@@ -21,6 +25,8 @@ class TimerScreen extends ConsumerWidget {
     final notifier = ref.read(timerNotifierProvider.notifier);
 
     return Scaffold(
+      bottomNavigationBar:
+          OhUndoBar(controller: ref.watch(timerUndoControllerProvider)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -84,8 +90,8 @@ class _TimerDisplay extends StatelessWidget {
             child: Text(
               'Running since ${_formatStart((state as TimerRunning).startTime)}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
           ),
       ],
@@ -117,88 +123,73 @@ class _TimerControls extends StatelessWidget {
   }
 
   Widget _buildStart(BuildContext context) => FilledButton.icon(
-    onPressed: notifier.start,
-    icon: const Icon(LucideIcons.play),
-    label: const Text('START'),
-    style: FilledButton.styleFrom(minimumSize: const Size(160, 52)),
-  );
+        onPressed: notifier.start,
+        icon: const Icon(LucideIcons.play),
+        label: const Text('START'),
+        style: FilledButton.styleFrom(minimumSize: const Size(160, 52)),
+      );
 
   Widget _buildRunning(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      OutlinedButton(
-        onPressed: notifier.pause,
-        child: const Text('PAUSE'),
-      ),
-      const SizedBox(width: AppSpacing.md),
-      FilledButton(
-        onPressed: () async {
-          final session = await notifier.stopAndSave();
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text('Session saved'),
-              action: SnackBarAction(
-                label: 'Add notes',
-                onPressed: () =>
-                    context.push('/sessions/${session.id}/edit', extra: session),
-              ),
-            ));
-          }
-        },
-        style: FilledButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-        child: const Text('STOP'),
-      ),
-    ],
-  );
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OutlinedButton(
+            onPressed: notifier.pause,
+            child: const Text('PAUSE'),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          FilledButton(
+            onPressed: () async {
+              final session = await notifier.stopAndSave();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: const Text('Session saved'),
+                  action: SnackBarAction(
+                    label: 'Add notes',
+                    onPressed: () => context
+                        .push('/sessions/${session.id}/edit', extra: session),
+                  ),
+                ));
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('STOP'),
+          ),
+        ],
+      );
 
   Widget _buildPaused(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      FilledButton.icon(
-        onPressed: notifier.resume,
-        icon: const Icon(LucideIcons.play),
-        label: const Text('RESUME'),
-      ),
-      const SizedBox(width: AppSpacing.md),
-      OutlinedButton(
-        onPressed: () async {
-          final session = await notifier.stopAndSave();
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text('Session saved'),
-              action: SnackBarAction(
-                label: 'Add notes',
-                onPressed: () =>
-                    context.push('/sessions/${session.id}/edit', extra: session),
-              ),
-            ));
-          }
-        },
-        child: const Text('STOP'),
-      ),
-    ],
-  );
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FilledButton.icon(
+            onPressed: notifier.resume,
+            icon: const Icon(LucideIcons.play),
+            label: const Text('RESUME'),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton(
+            onPressed: () async {
+              final session = await notifier.stopAndSave();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: const Text('Session saved'),
+                  action: SnackBarAction(
+                    label: 'Add notes',
+                    onPressed: () => context
+                        .push('/sessions/${session.id}/edit', extra: session),
+                  ),
+                ));
+              }
+            },
+            child: const Text('STOP'),
+          ),
+        ],
+      );
 
-  Widget _buildStopped(BuildContext context, session) => Column(
-    children: [
-      Text(
-        'Session ready to save',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      const SizedBox(height: AppSpacing.md),
-      FilledButton(
-        onPressed: () =>
-            context.push('/sessions/${session.id}/edit', extra: session),
-        child: const Text('Review & Save'),
-      ),
-      TextButton(
-        onPressed: notifier.discard,
-        child: const Text('Discard'),
-      ),
-    ],
-  );
+  // Reached when an auto-stop's save failed and the draft was kept.
+  Widget _buildStopped(BuildContext context, Session session) =>
+      UnsavedSessionPanel(session: session);
 }
 
 class _StatsRow extends ConsumerWidget {
@@ -229,6 +220,8 @@ class _StatsRow extends ConsumerWidget {
             label: 'This Year',
             valueStream: repo.watchSecondsForYear(now.year.toString()),
             goalHours: annualGoal,
+            pace: (done) =>
+                yearPace(done: done, goalHours: annualGoal, now: now),
           ),
         ),
       ],
@@ -241,10 +234,12 @@ class _StatBox extends StatelessWidget {
     required this.label,
     required this.valueStream,
     this.goalHours,
+    this.pace,
   });
   final String label;
   final Stream<int> valueStream;
   final int? goalHours;
+  final Pace Function(Duration done)? pace;
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +272,14 @@ class _StatBox extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            if (pace != null)
+              Text(
+                pace!(dur).phrase,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.statLabel.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
           ],
         );
       },

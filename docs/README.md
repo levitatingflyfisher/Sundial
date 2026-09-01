@@ -48,6 +48,7 @@ it, in 5 minutes" tutorial. If you write one, put it in `docs/tutorials/`.
 - **[Vision](../VISION.md)** — the one idea, the commitments, the honest scorecard.
 - **[Architecture overview](architecture/OVERVIEW.md)** — the layers + diagrams.
 - **[Architecture Decision Records](adr/)** — why each load-bearing choice was made.
+- **[Personas](explanation/personas.md)**: who agents play when they test the UI, with scenarios.
 - **[Concepts](concepts.md)** — sessions, the timer state machine, goals & pacing,
   badges, Focus vs Full mode.
 - **[Privacy model](privacy-model.md)** — what leaves the device (nothing), and how

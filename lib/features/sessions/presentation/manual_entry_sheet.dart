@@ -1,6 +1,7 @@
 // lib/features/sessions/presentation/manual_entry_sheet.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -51,58 +52,61 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
           TextButton(onPressed: _save, child: const Text('Save')),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          Text('How long?', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _SpinnerPicker(
-                controller: _hoursController,
-                itemCount: 24,
-                label: 'h',
-                onChanged: (v) => setState(() => _hours = v),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(
-                  ':',
-                  style: Theme.of(context).textTheme.headlineMedium,
+      body: OhPage(
+        padding: EdgeInsets.zero,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: [
+            Text('How long?', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SpinnerPicker(
+                  controller: _hoursController,
+                  itemCount: 24,
+                  label: 'h',
+                  onChanged: (v) => setState(() => _hours = v),
                 ),
-              ),
-              _SpinnerPicker(
-                controller: _minutesController,
-                itemCount: 60,
-                label: 'm',
-                onChanged: (v) => setState(() => _minutes = v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              _date.year == DateTime.now().year &&
-                      _date.month == DateTime.now().month &&
-                      _date.day == DateTime.now().day
-                  ? 'Today'
-                  : '${_date.month}/${_date.day}/${_date.year}',
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    ':',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+                _SpinnerPicker(
+                  controller: _minutesController,
+                  itemCount: 60,
+                  label: 'm',
+                  onChanged: (v) => setState(() => _minutes = v),
+                ),
+              ],
             ),
-            subtitle: const Text('Date'),
-            trailing: const Icon(LucideIcons.calendarCheck),
-            onTap: _pickDate,
-          ),
-          TextField(
-            maxLength: 100,
-            decoration: const InputDecoration(
-              hintText: 'Notes (optional)',
-              border: OutlineInputBorder(),
+            const SizedBox(height: AppSpacing.lg),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _date.year == DateTime.now().year &&
+                        _date.month == DateTime.now().month &&
+                        _date.day == DateTime.now().day
+                    ? 'Today'
+                    : '${_date.month}/${_date.day}/${_date.year}',
+              ),
+              subtitle: const Text('Date'),
+              trailing: const Icon(LucideIcons.calendarCheck),
+              onTap: _pickDate,
             ),
-            onChanged: (v) => _notes = v,
-          ),
-        ],
+            TextField(
+              maxLength: 100,
+              decoration: const InputDecoration(
+                hintText: 'Notes (optional)',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) => _notes = v,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -138,12 +142,15 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
       notes: _notes.isEmpty ? null : _notes,
       dateDay: dateDay,
       profileId: resolvedProfileId,
-      locationLabel: null, lat: null, lng: null,
+      locationLabel: null,
+      lat: null,
+      lng: null,
       createdAt: now.millisecondsSinceEpoch,
       updatedAt: now.millisecondsSinceEpoch,
     );
     await ref.read(sessionsRepositoryProvider).saveSession(session);
-    final newBadges = await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
+    final newBadges =
+        await ref.read(badgesRepositoryProvider).checkAndAwardMilestones();
     if (newBadges.isNotEmpty) {
       ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
     }

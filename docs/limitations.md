@@ -36,15 +36,11 @@ but nothing reads or writes them yet.
 - **iOS is not a target today.** The launcher-icon config and the release pipeline
   build for **Android and web** only. The Flutter code is not iOS-hostile, but there
   is no iOS build, signing, or release story.
-- **Web** runs Drift on `sqlite3.wasm` + a worker and centers the layout at 760px;
+- **Web** runs Drift on `sqlite3.wasm` + a worker and centres each screen's content at 640dp;
   it's a genuine PWA, but it is the mobile layout adapted, not a bespoke desktop UI.
 
 ## Behavior caveats
 
-- **Badges can be revoked.** If your all-time total drops back below a milestone
-  (after deleting or shortening sessions), that badge is un-earned. If you expected
-  milestones to be permanent, they currently are not — see
-  [concepts.md § badges](concepts.md#badges).
 - **No CSV export.** Export is JSON, PDF, and plain text; import is JSON only.
 - **Auto-stop is coarse.** It fires on the *first app resume* after the threshold is
   exceeded, not on a wall-clock timer, and only if you enabled it. A session left

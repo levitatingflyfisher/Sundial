@@ -39,9 +39,9 @@ Two things that are easy to get wrong:
    doesn't evict the local database under storage pressure. Keep that request in the
    web bootstrap when editing `web/index.html`.
 
-Layout note: `main.dart` centers the app at a **760px** max width on wider viewports,
-so the mobile layout reads well in a desktop browser. New screens should stay
-comfortable within that width.
+Layout note: every top-level screen caps its content at **640dp** with `OhPage`
+and centres it on wider viewports, while app bars stay full width, so the mobile
+layout reads well in a desktop browser. New screens do the same.
 
 ## Before you tag a release
 

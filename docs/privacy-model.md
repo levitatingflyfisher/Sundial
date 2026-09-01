@@ -45,8 +45,9 @@ lib/` for a network client (below) will not.
 ## No fonts fetched, either
 
 A subtle leak in many apps is fonts fetched from Google at runtime, which pings a
-third party on first launch. Sundial **bundles its fonts** (Lora and Nunito ship in
-`assets/fonts/`), so even first launch fetches nothing. This is covered by a test
+third party on first launch. Sundial's Lora and Nunito come from ohStyle's
+`openhearth_design` package as bundled package fonts (not a runtime CDN fetch),
+so even first launch fetches nothing. This is covered by a test
 (`test/shared/theme/offline_fonts_test.dart`) so a regression is caught.
 
 ## How to verify it yourself

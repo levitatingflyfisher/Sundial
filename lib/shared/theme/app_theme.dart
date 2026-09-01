@@ -5,14 +5,15 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  // Fonts are BUNDLED (assets/fonts/, declared in pubspec) and referenced by
-  // family — not fetched from fonts.gstatic.com at runtime. This keeps the app
-  // fully local-first: no font egress on first launch. See app_text_styles.dart.
+  // Fonts come from openhearth_design's package fonts (0.7.2+) and are
+  // referenced by family — not fetched from fonts.gstatic.com at runtime.
+  // This keeps the app fully local-first: no font egress on first launch.
+  // See app_text_styles.dart and test/shared/theme/offline_fonts_test.dart.
   //
   // The ladder itself is the fleet-canonical Material-scale TextTheme from
-  // openhearth_design — byte-identical to the block Sundial used to hand-roll
-  // (asserted in test/shared/theme/design_sync_test.dart), so adopting it is
-  // zero visual change by construction.
+  // openhearth_design (0.7.0: one ~1.2 ladder, body 16). Its exact values
+  // are pinned in test/shared/theme/design_sync_test.dart, so a ladder change
+  // upstream fails there and forces a deliberate golden re-approval.
   static const TextTheme _textTheme = OhTypography.materialTextTheme;
 
   static final light = ThemeData(

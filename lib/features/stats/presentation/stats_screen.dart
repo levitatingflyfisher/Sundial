@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/features/badges/presentation/badge_shelf.dart';
 import 'package:sundial/features/profiles/presentation/profiles_screen.dart';
+import 'package:sundial/features/stats/domain/pace.dart';
 import 'package:sundial/shared/extensions/duration_ext.dart';
 import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
@@ -23,17 +24,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   // NOT touch activeProfileIdProvider so "viewing Dad's stats" doesn't
   // switch the global active profile used by the timer.
   String? _profileFilter;
-
-  @override
-  void initState() {
-    super.initState();
-    // Guard against the widget being disposed before the microtask runs
-    // (e.g. user navigates away quickly, or test tears down the tree).
-    Future(() {
-      if (!mounted) return;
-      ref.read(badgesRepositoryProvider).revokeIfBelowMilestones();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,8 +57,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   FilterChip(
                     label: const Text('Everyone'),
                     selected: _profileFilter == null,
-                    onSelected: (_) =>
-                        setState(() => _profileFilter = null),
+                    onSelected: (_) => setState(() => _profileFilter = null),
                     visualDensity: VisualDensity.compact,
                   ),
                   ...profiles.map((p) => FilterChip(
@@ -100,12 +89,18 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               _profileFilter,
             ),
             goalHours: monthlyGoal,
+            pace: monthlyGoal == null
+                ? null
+                : (done) =>
+                    monthPace(done: done, goalHours: monthlyGoal, now: now),
           ),
           const SizedBox(height: AppSpacing.md),
           _StatCard(
             label: 'This Year',
             stream: repo.watchSecondsForYearFiltered(yearKey, _profileFilter),
             goalHours: annualGoal,
+            pace: (done) =>
+                yearPace(done: done, goalHours: annualGoal, now: now),
           ),
           const SizedBox(height: AppSpacing.md),
           _MonthlyBreakdown(profileId: _profileFilter),
@@ -129,8 +124,18 @@ class _MonthlyBreakdown extends ConsumerWidget {
   final String? profileId;
 
   static const _labels = [
-    'Jan','Feb','Mar','Apr','May','Jun',
-    'Jul','Aug','Sep','Oct','Nov','Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -238,10 +243,19 @@ class _MonthlyBreakdown extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.stream, this.goalHours});
+  const _StatCard({
+    required this.label,
+    required this.stream,
+    this.goalHours,
+    this.pace,
+  });
   final String label;
   final Stream<int> stream;
   final int? goalHours;
+
+  /// Where this period stands against its goal to date. The bar's colour
+  /// comes from here (pace), never from the fraction of the goal.
+  final Pace Function(Duration done)? pace;
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +270,7 @@ class _StatCard extends StatelessWidget {
             final progress = goalHours != null
                 ? (secs / (goalHours! * 3600)).clamp(0.0, 1.0)
                 : null;
+            final p = pace?.call(dur);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -274,13 +289,18 @@ class _StatCard extends StatelessWidget {
                     value: progress,
                     backgroundColor:
                         Theme.of(context).colorScheme.surfaceContainerHighest,
-                    color: _progressColor(progress),
+                    color: p == null ? AppColors.onPace : _paceColor(p.status),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${(progress * 100).toStringAsFixed(0)}% of ${goalHours}h goal',
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
+                  if (p != null)
+                    Text(
+                      '${p.phrase} · ${p.expectedLine}',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                 ],
               ],
             );
@@ -290,9 +310,10 @@ class _StatCard extends StatelessWidget {
     );
   }
 
-  Color _progressColor(double p) {
-    if (p >= 0.85) return AppColors.onPace;
-    if (p >= 0.60) return AppColors.slightlyBehind;
-    return AppColors.behind;
-  }
+  // Behind is amber, never red (VISION §3).
+  Color _paceColor(PaceStatus s) => switch (s) {
+        PaceStatus.onPace => AppColors.onPace,
+        PaceStatus.slightlyBehind => AppColors.slightlyBehind,
+        PaceStatus.behind => AppColors.behind,
+      };
 }

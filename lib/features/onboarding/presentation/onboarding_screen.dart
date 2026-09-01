@@ -1,6 +1,7 @@
 // lib/features/onboarding/presentation/onboarding_screen.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sundial/core/providers/core_providers.dart';
@@ -36,13 +37,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _controller,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          _WelcomePage(onNext: _next),
-          _ModePage(onSelect: _select),
-        ],
+      body: OhPage(
+        padding: EdgeInsets.zero,
+        child: PageView(
+          controller: _controller,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _WelcomePage(onNext: _next),
+            _ModePage(onSelect: _select),
+          ],
+        ),
       ),
     );
   }
@@ -84,7 +88,7 @@ class _WelcomePage extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Track outdoor time with your family.\nNo ads, no account, no cloud — just time well spent.',
+              'Track outdoor time with your family.\nNo ads, no account, no cloud. Just time well spent.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: cs.onSurfaceVariant,
                     height: 1.5,
@@ -140,7 +144,7 @@ class _ModePage extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Switch between Flow and Rich any time — one tap.',
+              'Switch between Flow and Rich any time with one tap.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -162,7 +166,7 @@ class _ModePage extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              'Both free, forever. Your data is always the same — just a different view.',
+              'Both free, forever. Your data is always the same; only the view changes.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),

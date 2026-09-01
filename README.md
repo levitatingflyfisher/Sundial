@@ -91,5 +91,6 @@ Flutter · Riverpod · Drift (SQLite) · go_router · Clean Architecture
 
 ## License
 
-[MIT](LICENSE). The bundled Lora and Nunito font families are licensed
-separately under the [SIL Open Font License 1.1](assets/fonts/OFL.txt).
+[MIT](LICENSE). Lora and Nunito, bundled via ohStyle's `openhearth_design`
+package, are licensed separately under the SIL Open Font License 1.1 (see
+that package's `fonts/OFL.txt`).

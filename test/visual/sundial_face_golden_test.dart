@@ -34,7 +34,7 @@ void main() {
               style: FlowTimerStyle.dualRing,
               isRunning: false,
               annualGoalHours: 1000,
-              yearTotalHours: 247,
+              yearTotal: Duration(hours: 247),
             ),
           ),
         ),
@@ -60,6 +60,7 @@ void main() {
             width: 240,
             height: 240,
             child: SundialFace(
+              yearTotal: Duration.zero,
               elapsed: Duration(hours: 1, minutes: 23),
               sessionMax: Duration(hours: 3),
               style: FlowTimerStyle.gnomon,

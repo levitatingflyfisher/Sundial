@@ -74,7 +74,6 @@ flowchart LR
     sessions --> dots[Focus 7-day dot row]
     sessions --> badges{badge check}
     badges -->|new milestone| confetti[confetti + earnedAt]
-    badges -->|total dropped below threshold| revoke[revoke]
 ```
 
 - A **session** is `(startTime, endTime, durationSecs, dateDay, profileId?, notes?)`.
@@ -83,8 +82,8 @@ flowchart LR
 - **Auto-stop** is a pure predicate (`AutoStopService.shouldTrigger`) checked on app
   resume; it only fires if the user opted in. See
   [ADR-0005](../adr/0005-forgiveness-over-prevention.md).
-- **Badges** are recomputed from the all-time total: earned when the total crosses a
-  threshold, and (as currently shipped) revoked if it drops back below one. See
+- **Badges** are earned when the all-time total first crosses a threshold and are
+  never revoked afterwards. See
   [concepts.md § badges](../concepts.md#badges).
 
 ## Two surfaces, one data model
@@ -107,7 +106,7 @@ flowchart TB
 | Surface | Where | Notes |
 |---|---|---|
 | Android app | `flutter build apk` | Home-screen widget + media-style timer notification via platform channels (`main.dart`, `MainActivity.kt`) |
-| Web PWA | `flutter build web` | Drift runs on `sqlite3.wasm` + `drift_worker.js` (shipped in `web/`); layout centered at 760px |
+| Web PWA | `flutter build web` | Drift runs on `sqlite3.wasm` + `drift_worker.js` (shipped in `web/`); content capped at 640dp and centred per screen (`OhPage`) |
 
 ## Module map (where to look)
 

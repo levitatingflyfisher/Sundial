@@ -53,11 +53,10 @@ Milestone rows, seeded on install; `earnedAt` is set when crossed.
 **Seeded thresholds (hours):** `10, 25, 50, 75, 100, 200, 250, 300, 400, 500, 600,
 700, 750, 800, 900, 1000`.
 
-**Invariant the code maintains:** a badge is earned **iff** the all-time total is ≥
-its `thresholdHours`. This is *recomputed*, not latched — awarding on cross
-(`checkAndAwardMilestones`) and **revoking** if the total later drops below
-(`revokeIfBelowMilestones`). See [concepts.md § badges](../concepts.md#badges) for the
-grain-of-salt note on revocation.
+**Invariant the code maintains:** a badge is awarded the first time the all-time
+total reaches its `thresholdHours` (`checkAndAwardMilestones`) and is **latched**:
+`earnedAt` is never cleared afterwards, even if the total later drops. See
+[concepts.md § badges](../concepts.md#badges).
 
 ### `UserPrefs`
 
@@ -72,7 +71,7 @@ A simple key/value table for durable preferences. The typed shape
 | `flowTimerStyle` | `gnomon` (also `arc`, `dualRing`) |
 | `autoStopEnabled` | `false` |
 | `autoStopThresholdHours` | `2` |
-| `isDarkMode` | `false` |
+| `themeMode` | `system` (follow the phone; also `light`, `dark`). Stored under key `theme_mode`; the legacy `theme` key is read only when that is absent: `dark` → dark, `light` → system |
 | `timeFormat` | `h12` (also `h24`) |
 | `weekStart` | `sunday` (also `monday`) |
 

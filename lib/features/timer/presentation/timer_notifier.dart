@@ -1,7 +1,9 @@
 // lib/features/timer/presentation/timer_notifier.dart
 import 'package:fpdart/fpdart.dart';
+import 'package:sundial/shared/extensions/duration_ext.dart';
 import 'package:sundial/core/error/failures.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
@@ -16,7 +18,10 @@ import 'package:sundial/features/timer/domain/timer_state.dart';
 
 part 'timer_notifier.g.dart';
 
-@riverpod
+// keepAlive: the timer belongs to the app, not to whichever screen shows it.
+// Auto-dispose dropped an unsaved draft (held only in memory) the moment the
+// Timer tab was left.
+@Riverpod(keepAlive: true)
 class TimerNotifier extends _$TimerNotifier {
   Timer? _ticker;
   int _tickCount = 0;
@@ -32,6 +37,11 @@ class TimerNotifier extends _$TimerNotifier {
   static const _startKey = 'timer_start_ms';
   static const _accKey = 'timer_paused_accumulated_secs';
   static const _profileKey = 'timer_profile_id';
+
+  /// An unsaved draft (TimerStopped), as Session JSON, so a restart offers
+  /// it back instead of losing it. Written when a draft is built or an
+  /// Undo restores one; removed when it is saved or discarded.
+  static const _draftKey = 'timer_unsaved_draft';
   static final _dayFmt = DateFormat('yyyy-MM-dd');
 
   int get _durationMs {
@@ -47,6 +57,8 @@ class TimerNotifier extends _$TimerNotifier {
 
   TimerState _reconstructFromPrefs() {
     final prefs = ref.read(sharedPreferencesProvider);
+    final draft = _readDraft(prefs.getString(_draftKey));
+    if (draft != null) return TimerStopped(session: draft);
     final startMs = prefs.getInt(_startKey);
     final accSecs = prefs.getInt(_accKey) ?? 0;
     final profileId = prefs.getString(_profileKey) ?? 'default';
@@ -183,8 +195,8 @@ class TimerNotifier extends _$TimerNotifier {
     }
     state = TimerPaused(accumulated: elapsed, profileId: current.profileId);
     if (!fromNative) {
-      unawaited(showTimerPaused(current.profileId, elapsed,
-          durationMs: _durationMs));
+      unawaited(
+          showTimerPaused(current.profileId, elapsed, durationMs: _durationMs));
     }
   }
 
@@ -259,6 +271,7 @@ class TimerNotifier extends _$TimerNotifier {
       updatedAt: now.millisecondsSinceEpoch,
     );
 
+    await _persistDraft(session);
     state = TimerStopped(session: session);
     return session;
   }
@@ -282,6 +295,7 @@ class TimerNotifier extends _$TimerNotifier {
       ref.read(newlyEarnedBadgesProvider.notifier).state = newBadges;
     }
     final profileId = session.profileId ?? 'default';
+    await _persistDraft(null);
     state = const TimerIdle();
     _updateHomeWidget();
     unawaited(dismissTimerNotification(profileId));
@@ -366,7 +380,9 @@ class TimerNotifier extends _$TimerNotifier {
       notes: null,
       dateDay: _dayFmt.format(startTime),
       profileId: effectiveProfileId,
-      locationLabel: null, lat: null, lng: null,
+      locationLabel: null,
+      lat: null,
+      lng: null,
       createdAt: now.millisecondsSinceEpoch,
       updatedAt: now.millisecondsSinceEpoch,
     );
@@ -409,14 +425,11 @@ class TimerNotifier extends _$TimerNotifier {
       } else if (state case TimerPaused(:final accumulated)) {
         secs += accumulated.inSeconds;
       }
-      final h = secs ~/ 3600;
-      final m = (secs % 3600) ~/ 60;
-      final label = h > 0 ? (m > 0 ? '${h}h ${m}m' : '${h}h') : '${m}m';
-      await HomeWidget.saveWidgetData<String>('today_hours', label);
+      await HomeWidget.saveWidgetData<String>(
+          'today_hours', Duration(seconds: secs).toHoursLabel());
       await HomeWidget.updateWidget(
         androidName: 'SundialWidgetProvider',
-        qualifiedAndroidName:
-            'com.openhearth.sundial.SundialWidgetProvider',
+        qualifiedAndroidName: 'com.openhearth.sundial.SundialWidgetProvider',
       );
     } catch (e) {
       debugPrint('[Widget] update failed: $e');
@@ -430,31 +443,60 @@ class TimerNotifier extends _$TimerNotifier {
       TimerStopped(:final session) => session.profileId ?? 'default',
       _ => 'default',
     };
+    unawaited(_persistDraft(null));
     state = const TimerIdle();
     unawaited(dismissTimerNotification(profileId));
   }
 
+  /// Undo for [discard] of an unsaved draft: puts the draft back, but only
+  /// if nothing has started since.
+  void restoreDiscarded(Session session) {
+    if (state is! TimerIdle) return;
+    unawaited(_persistDraft(session));
+    state = TimerStopped(session: session);
+  }
+
+  Session? _readDraft(String? json) {
+    if (json == null) return null;
+    try {
+      return Session.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[Timer] unreadable saved draft dropped: $e');
+      return null;
+    }
+  }
+
+  Future<void> _persistDraft(Session? session) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return session == null
+        ? prefs.remove(_draftKey)
+        : prefs.setString(_draftKey, jsonEncode(session.toJson()));
+  }
+
   Duration get elapsed => switch (state) {
-    TimerRunning(:final startTime, :final accumulated, profileId: _) =>
-      _computeElapsed(TimerRunning(
-        startTime: startTime,
-        accumulated: accumulated,
-      )),
-    TimerPaused(:final accumulated, profileId: _) => accumulated,
-    _ => Duration.zero,
-  };
+        TimerRunning(:final startTime, :final accumulated, profileId: _) =>
+          _computeElapsed(TimerRunning(
+            startTime: startTime,
+            accumulated: accumulated,
+          )),
+        TimerPaused(:final accumulated, profileId: _) => accumulated,
+        _ => Duration.zero,
+      };
 
   Duration _computeElapsed(TimerRunning r) => Duration(
-    seconds: DateTime.now().difference(r.startTime).inSeconds +
-        r.accumulated.inSeconds,
-  );
+        seconds: DateTime.now().difference(r.startTime).inSeconds +
+            r.accumulated.inSeconds,
+      );
 
   // Notification flag key helpers — default profile uses legacy bare keys
   // so existing installs aren't affected on upgrade.
-  static String _notifStopKey(String profileId) =>
-      profileId == 'default' ? notifPendingStop : '${notifPendingStop}_$profileId';
-  static String _notifPauseKey(String profileId) =>
-      profileId == 'default' ? notifPendingPause : '${notifPendingPause}_$profileId';
-  static String _notifResumeKey(String profileId) =>
-      profileId == 'default' ? notifPendingResume : '${notifPendingResume}_$profileId';
+  static String _notifStopKey(String profileId) => profileId == 'default'
+      ? notifPendingStop
+      : '${notifPendingStop}_$profileId';
+  static String _notifPauseKey(String profileId) => profileId == 'default'
+      ? notifPendingPause
+      : '${notifPendingPause}_$profileId';
+  static String _notifResumeKey(String profileId) => profileId == 'default'
+      ? notifPendingResume
+      : '${notifPendingResume}_$profileId';
 }

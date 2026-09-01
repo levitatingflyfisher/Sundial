@@ -17,8 +17,4 @@ class BadgesDao extends DatabaseAccessor<AppDatabase> with _$BadgesDaoMixin {
         BadgesCompanion(earnedAt: Value(earnedAtMs)),
       );
 
-  Future<void> markRevoked(String id) =>
-      (update(badges)..where((t) => t.id.equals(id))).write(
-        const BadgesCompanion(earnedAt: Value(null)),
-      );
 }

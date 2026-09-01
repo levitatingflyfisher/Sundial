@@ -46,10 +46,23 @@ class LocalProfilesRepository implements ProfilesRepository {
   }
 
   @override
-  Future<void> deleteProfile(String id) async {
+  Future<DeletedProfile?> deleteProfile(String id) async {
+    final profile =
+        (await _dao.getAll()).where((p) => p.id == id).firstOrNull;
+    if (profile == null) return null;
+    final sessionIds = await _sessionsDao.sessionIdsForProfile(id);
     // Orphan sessions to no profile (null = "default" in queries).
     await _sessionsDao.clearProfileId(id);
     await _dao.deleteById(id);
+    return DeletedProfile(profile: profile, sessionIds: sessionIds);
+  }
+
+  @override
+  Future<void> restoreProfile(DeletedProfile deleted) async {
+    await _dao.upsert(deleted.profile.toCompanion(true));
+    if (deleted.sessionIds.isNotEmpty) {
+      await _sessionsDao.setProfileId(deleted.sessionIds, deleted.profile.id);
+    }
   }
 
   @override

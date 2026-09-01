@@ -3,6 +3,8 @@
 // INTO the existing Backup & Restore screen, not a separate settings
 // section).
 
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +16,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
 import 'package:sundial/features/export/presentation/export_screen.dart';
+
+/// Never answers: the auth state stays loading.
+class _HangingKeyStore extends InMemorySecureKeyStore {
+  @override
+  Future<String?> readMnemonic() => Completer<String?>().future;
+}
+
+/// Fails to read: the auth state is an error.
+class _BrokenKeyStore extends InMemorySecureKeyStore {
+  @override
+  Future<String?> readMnemonic() async =>
+      throw StateError('keychain unavailable');
+}
 
 const _ackedMnemonic = 'abandon abandon abandon abandon abandon abandon '
     'abandon abandon abandon abandon abandon about';
@@ -302,6 +317,48 @@ void main() {
       expect(tester.takeException(), isNull,
           reason: 'no RenderFlex overflow with the seed-phrase sheet open '
               'at narrow width + large text scale');
+    });
+  });
+
+  // dmmt-08: the section used to render nothing while auth loaded or failed,
+  // leaving a bare divider introducing an empty space. Each area now has a
+  // heading, and the backup heading is drawn in every auth state with
+  // visible content under it.
+  group('ExportScreen — headings and every auth state', () {
+    testWidgets('Import, Export and Encrypted backup are named on screen',
+        (tester) async {
+      await tester.pumpWidget(
+          await _makeScreen(store: InMemorySecureKeyStore()));
+      await tester.pumpAndSettle();
+
+      for (final heading in ['IMPORT', 'EXPORT', 'ENCRYPTED BACKUP']) {
+        await tester.scrollUntilVisible(find.text(heading), 100);
+        expect(find.text(heading), findsOneWidget, reason: heading);
+      }
+      expect(find.byType(Divider), findsNothing,
+          reason: 'headings replace the bare dividers');
+    });
+
+    testWidgets('while auth loads: heading plus a status line',
+        (tester) async {
+      await tester.pumpWidget(await _makeScreen(store: _HangingKeyStore()));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.scrollUntilVisible(find.text('ENCRYPTED BACKUP'), 100);
+      expect(find.text('Checking backup status…'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('when auth fails: heading, a plain sentence and Try again',
+        (tester) async {
+      await tester.pumpWidget(await _makeScreen(store: _BrokenKeyStore()));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('ENCRYPTED BACKUP'), 100);
+      expect(find.text("Couldn’t check backup status."), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      expect(find.textContaining('keychain unavailable'), findsNothing,
+          reason: 'never the raw error');
     });
   });
 }

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sundial/core/providers/core_providers.dart';
+import 'package:sundial/shared/extensions/duration_ext.dart';
 
 class CumulativeChart extends ConsumerWidget {
   const CumulativeChart({super.key, this.profileId});
@@ -34,8 +35,8 @@ class CumulativeChart extends ConsumerWidget {
 
         final cs = Theme.of(context).colorScheme;
         final totalLabel = points.isEmpty
-            ? '0h total'
-            : '${points.last.hours.toStringAsFixed(0)}h total';
+            ? '0m total'
+            : '${_hoursDuration(points.last.hours).toHoursLabel()} total';
 
         return Card(
           child: Padding(
@@ -44,7 +45,7 @@ class CumulativeChart extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hours outside — all time',
+                  'Hours outside, all time',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -78,6 +79,9 @@ class CumulativeChart extends ConsumerWidget {
     );
   }
 }
+
+Duration _hoursDuration(double hours) =>
+    Duration(seconds: (hours * 3600).round());
 
 class _Point {
   const _Point(this.yearMonth, this.hours);
@@ -118,7 +122,9 @@ class _CumulativePainter extends CustomPainter {
           ..color = gridColor.withValues(alpha: 0.5)
           ..strokeWidth = 0.5,
       );
-      final label = maxH > 0 ? '${(maxH * frac).round()}h' : '0h';
+      // Same formatter as the header, so a 30m total reads 30m / 15m / 0m
+      // up the axis instead of rounding to 1h / 0h / 0h.
+      final label = _hoursDuration(maxH * frac).toHoursLabel();
       _drawText(canvas, label, 0, y - 7, color: labelColor, size: 9);
     }
 

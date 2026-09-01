@@ -690,14 +690,14 @@ packages:
       path: "../packages/oh_fleet_conformance"
       relative: true
     source: path
-    version: "0.5.1"
+    version: "0.8.1"
   openhearth_design:
     dependency: "direct main"
     description:
       path: "../ohStyle/openhearth_design"
       relative: true
     source: path
-    version: "0.4.0"
+    version: "0.7.2"
   package_config:
     dependency: transitive
     description:
@@ -927,7 +927,7 @@ packages:
       path: "../packages/sanctuary_backup_ui"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   share_plus:
     dependency: "direct main"
     description:

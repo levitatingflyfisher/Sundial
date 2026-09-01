@@ -97,7 +97,7 @@ Stream<UserPrefs> userPrefs(Ref ref) =>
 ThemeMode themeMode(Ref ref) {
   final prefs = ref.watch(userPrefsProvider);
   return prefs.when(
-    data: (p) => p.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+    data: (p) => p.themeMode.themeMode,
     loading: () => ThemeMode.system,
     error: (_, __) => ThemeMode.system,
   );

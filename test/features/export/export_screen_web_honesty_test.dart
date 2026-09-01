@@ -295,7 +295,7 @@ void main() {
 
       expect(find.byType(SnackBar), findsOneWidget,
           reason: 'the user must hear SOMETHING when the pick can\'t be read');
-      expect(find.textContaining("Couldn't read"), findsOneWidget);
+      expect(find.textContaining('Couldn’t read'), findsOneWidget);
     });
   });
 }

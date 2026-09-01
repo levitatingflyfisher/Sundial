@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,24 +29,29 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
-    await goldenAtSizes(
-      tester,
-      name: 'timer_screen',
-      home: ProviderScope(
-        overrides: [
-          appDatabaseProvider
-              .overrideWith((_) => AppDatabase(NativeDatabase.memory())),
-          sharedPreferencesProvider.overrideWithValue(prefs),
-        ],
-        child: const TimerScreen(),
-      ),
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
-      sizes: const {
-        'phone': Size(360, 800),
-        'narrow': Size(320, 800),
-      },
-      textScales: const <double>[1.0, 3.0],
-    );
+    // The year box now states pace, which depends on the date; pin it so
+    // the golden does not change every day (1 January: nothing logged is
+    // still "On pace").
+    await withClock(
+        Clock.fixed(DateTime(2026, 1, 1, 8)),
+        () => goldenAtSizes(
+              tester,
+              name: 'timer_screen',
+              home: ProviderScope(
+                overrides: [
+                  appDatabaseProvider.overrideWith(
+                      (_) => AppDatabase(NativeDatabase.memory())),
+                  sharedPreferencesProvider.overrideWithValue(prefs),
+                ],
+                child: const TimerScreen(),
+              ),
+              theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+              sizes: const {
+                'phone': Size(360, 800),
+                'narrow': Size(320, 800),
+              },
+              textScales: const <double>[1.0, 3.0],
+            ));
 
     await _tearDown(tester);
   });

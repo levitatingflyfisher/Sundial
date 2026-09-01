@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
+import 'package:sundial/shared/extensions/duration_ext.dart';
 
 class SundialFace extends StatefulWidget {
   const SundialFace({
@@ -8,7 +9,9 @@ class SundialFace extends StatefulWidget {
     required this.elapsed,
     this.sessionMax = const Duration(hours: 3),
     this.annualGoalHours = 1000,
-    this.yearTotalHours = 0,
+    // Required, no default: a default of 0 is how Flow shipped a Dual Ring
+    // whose year ring never filled (visual-02).
+    required this.yearTotal,
     this.style = FlowTimerStyle.gnomon,
     this.isRunning = false,
   });
@@ -16,7 +19,9 @@ class SundialFace extends StatefulWidget {
   final Duration elapsed;
   final Duration sessionMax;
   final int annualGoalHours;
-  final int yearTotalHours;
+
+  /// Time outside so far this year, drawn by the Dual Ring's outer ring.
+  final Duration yearTotal;
   final FlowTimerStyle style;
   final bool isRunning;
 
@@ -89,7 +94,7 @@ class _SundialFaceState extends State<SundialFace>
               elapsed: widget.elapsed,
               maxDuration: widget.sessionMax,
               annualGoalHours: widget.annualGoalHours,
-              yearTotalHours: widget.yearTotalHours,
+              yearTotal: widget.yearTotal,
               sweepColor: colors.primary,
               trackColor: colors.surfaceContainerHighest,
               sunColor: colors.primary,
@@ -380,7 +385,7 @@ class DualRingPainter extends CustomPainter {
     required this.elapsed,
     required this.maxDuration,
     required this.annualGoalHours,
-    required this.yearTotalHours,
+    required this.yearTotal,
     required this.sweepColor,
     required this.trackColor,
     required this.sunColor,
@@ -391,7 +396,7 @@ class DualRingPainter extends CustomPainter {
   final Duration elapsed;
   final Duration maxDuration;
   final int annualGoalHours;
-  final int yearTotalHours;
+  final Duration yearTotal;
   final Color sweepColor;
   final Color trackColor;
   final Color sunColor;
@@ -406,7 +411,7 @@ class DualRingPainter extends CustomPainter {
     final innerR = size.width * 0.32;
 
     final yearProgress =
-        (yearTotalHours / annualGoalHours).clamp(0.0, 1.0);
+        (yearTotal.inSeconds / (annualGoalHours * 3600)).clamp(0.0, 1.0);
     final sessionProgress =
         (elapsed.inSeconds / maxDuration.inSeconds).clamp(0.0, 1.0);
 
@@ -454,7 +459,7 @@ class DualRingPainter extends CustomPainter {
     // Sub-center: year total
     final yearTp = TextPainter(
       text: TextSpan(
-        text: '${yearTotalHours}h / ${annualGoalHours}h',
+        text: '${yearTotal.toHoursLabel()} / ${annualGoalHours}h',
         style:
             TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 10),
       ),
@@ -490,7 +495,7 @@ class DualRingPainter extends CustomPainter {
   bool shouldRepaint(DualRingPainter old) =>
       old.elapsed != elapsed ||
       old.sunScale != sunScale ||
-      old.yearTotalHours != yearTotalHours ||
+      old.yearTotal != yearTotal ||
       old.annualGoalHours != annualGoalHours ||
       old.sweepColor != sweepColor ||
       old.trackColor != trackColor;
