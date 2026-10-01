@@ -1,11 +1,11 @@
 {
-    "name": "sundial",
-    "short_name": "sundial",
+    "name": "Sundial",
+    "short_name": "Sundial",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FBF8F4",
+    "theme_color": "#5E9478",
+    "description": "Local-first tracker for time spent outdoors",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -183,7 +183,6 @@ class _ProfileEditSheetState extends ConsumerState<_ProfileEditSheet> {
             controller: _emojiCtrl,
             decoration: const InputDecoration(
               labelText: 'Emoji (optional)',
-              hintText: '🌿',
               border: OutlineInputBorder(),
             ),
           ),

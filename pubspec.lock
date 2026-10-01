@@ -690,14 +690,14 @@ packages:
       path: "../packages/oh_fleet_conformance"
       relative: true
     source: path
-    version: "0.8.1"
+    version: "0.12.0"
   openhearth_design:
     dependency: "direct main"
     description:
       path: "../ohStyle/openhearth_design"
       relative: true
     source: path
-    version: "0.7.2"
+    version: "0.9.1"
   package_config:
     dependency: transitive
     description:
