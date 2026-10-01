@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:openhearth_design/openhearth_design.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart' show Profile, Session;
 import 'package:sundial/features/profiles/presentation/profiles_screen.dart';
@@ -13,6 +14,7 @@ import 'package:sundial/features/settings/domain/user_prefs.dart';
 import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 import 'session_card.dart';
+import 'session_undo.dart';
 
 enum _DateFilter { all, thisWeek, thisMonth }
 
@@ -86,7 +88,37 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Toolbar row: filter chips or month nav + view toggle
+          // The view switch: two worded segments, each an absolute choice
+          // (finding 10: one icon named only in a tooltip). Switching keeps
+          // the browsed month.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SegmentedButton<_ViewMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: _ViewMode.calendar,
+                    icon: Icon(LucideIcons.calendarDays, size: 18),
+                    label: Text('Calendar'),
+                  ),
+                  ButtonSegment(
+                    value: _ViewMode.list,
+                    icon: Icon(LucideIcons.list, size: 18),
+                    label: Text('List'),
+                  ),
+                ],
+                selected: {_viewMode},
+                onSelectionChanged: (v) => setState(() {
+                  _viewMode = v.single;
+                  _calendarSelectedDay = null;
+                }),
+              ),
+            ),
+          ),
+          // Toolbar row: filter chips or month nav
           Padding(
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md, AppSpacing.sm, AppSpacing.xs, AppSpacing.xs),
@@ -146,25 +178,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     }),
                   ),
                 ],
-                IconButton(
-                  icon: Icon(
-                    _viewMode == _ViewMode.list
-                        ? LucideIcons.calendarDays
-                        : LucideIcons.list,
-                    size: 20,
-                  ),
-                  tooltip: _viewMode == _ViewMode.list
-                      ? 'Calendar view'
-                      : 'List view',
-                  onPressed: () => setState(() {
-                    _viewMode = _viewMode == _ViewMode.list
-                        ? _ViewMode.calendar
-                        : _ViewMode.list;
-                    _calendarSelectedDay = null;
-                    _calendarMonth = DateTime(
-                        DateTime.now().year, DateTime.now().month);
-                  }),
-                ),
               ],
             ),
           ),
@@ -330,6 +343,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
         ],
       ),
+      // A session deleted from Edit Session offers its Undo here; it never
+      // times out (fleet delete ruling).
+      bottomNavigationBar:
+          OhUndoBar(controller: ref.watch(sessionUndoControllerProvider)),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           final initialDate =

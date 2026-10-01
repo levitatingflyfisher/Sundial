@@ -31,6 +31,9 @@ class AppColors {
   static const warmDark  = OhColors.darkSurfaceBase;
   static const warmDark2 = Color(0xFF241508);
 
-  // Badge + accent
-  static const sunGold = Color(0xFFF5A623);
+  // Badge gold: its own value, not the behind-pace amber (dashboard-09:
+  // "you are behind" and "you earned this" must not share a colour). Old
+  // gold, CIEDE2000 >= 12 from both pace warnings, 3.5:1 on linen50 and
+  // 4.9:1 on the dark base (test/shared/theme/badge_gold_test.dart).
+  static const sunGold = Color(0xFFA67C00);
 }

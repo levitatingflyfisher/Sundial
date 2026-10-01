@@ -4,6 +4,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart' hide UserPrefs;
+import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 
 class BadgeShelf extends ConsumerWidget {
@@ -53,12 +54,12 @@ class _BadgeChip extends StatelessWidget {
       avatar: Icon(
         LucideIcons.sun,
         color: earned
-            ? const Color(0xFFF5A623)
+            ? AppColors.sunGold
             : unearned.withValues(alpha: 0.3),
       ),
       label: Text('${badge.thresholdHours}h'),
       backgroundColor: earned
-          ? const Color(0xFFF5A623).withValues(alpha: 0.1)
+          ? AppColors.sunGold.withValues(alpha: 0.1)
           : Theme.of(context).colorScheme.surfaceContainerHighest,
     );
   }

@@ -19,13 +19,20 @@ Session _makeSession() => Session(
 );
 
 void main() {
-  setUpAll(() => SharedPreferences.setMockInitialValues({}));
+  late SharedPreferences prefs;
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
 
   testWidgets('SessionEditSheet shows current duration', (tester) async {
     final session = _makeSession();
     await tester.pumpWidget(ProviderScope(
       overrides: [
         appDatabaseProvider.overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+        // The editor reads the timer (is this the unsaved draft?), which
+        // reads preferences, as in the app.
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
       child: MaterialApp(
         home: Scaffold(body: SessionEditSheet(sessionId: session.id, initialSession: session)),
@@ -42,6 +49,9 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         appDatabaseProvider.overrideWith((_) => AppDatabase(NativeDatabase.memory())),
+        // The editor reads the timer (is this the unsaved draft?), which
+        // reads preferences, as in the app.
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
       child: MaterialApp(
         home: Scaffold(body: SessionEditSheet(sessionId: session.id, initialSession: session)),

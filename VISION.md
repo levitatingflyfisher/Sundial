@@ -80,7 +80,10 @@ before you rely on it. As of `0.1.0`:
 - The timer state machine (idle → running → paused → stopped), background-safe,
   with Android home-screen-widget and media-notification controls.
 - Manual entry, **unrestricted session editing** (including retiming a session to a
-  different day), delete, and reverse-chronological history.
+  different day), delete, and reverse-chronological history. Delete is a visible
+  button in Edit Session that does not ask and offers an Undo on History that never
+  times out (`test/features/sessions/session_edit_delete_test.dart`); the swipe on
+  History asks first, naming the session.
 - Stats: Today / This Month / This Year / All-Time, a cumulative chart, a heatmap,
   and a per-month breakdown — all filterable by profile.
 - Goals (annual default 1000h + optional monthly) with **computed** pace: actual against

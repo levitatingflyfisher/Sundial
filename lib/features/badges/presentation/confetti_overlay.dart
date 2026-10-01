@@ -1,5 +1,6 @@
 // lib/features/badges/presentation/confetti_overlay.dart
 import 'package:confetti/confetti.dart';
+import 'package:sundial/shared/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Wrap any widget with this to show confetti when [play] is true.
@@ -46,7 +47,7 @@ class _ConfettiOverlayState extends State<ConfettiOverlay> {
             blastDirectionality: BlastDirectionality.explosive,
             shouldLoop: false,
             colors: const [
-              Color(0xFFF5A623),
+              AppColors.sunGold,
               Color(0xFF4A90D9),
               Color(0xFF5BA55B),
               Colors.purple,

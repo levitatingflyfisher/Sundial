@@ -11,8 +11,10 @@ import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:sundial/core/providers/core_providers.dart';
 import 'package:sundial/core/storage/app_database.dart';
+import 'package:sundial/features/sessions/presentation/session_undo.dart';
 import 'package:sundial/features/timer/domain/timer_state.dart';
 import 'package:sundial/features/timer/presentation/timer_notifier.dart';
+import 'package:sundial/shared/extensions/duration_ext.dart';
 import 'package:sundial/shared/theme/app_spacing.dart';
 
 class SessionEditSheet extends ConsumerStatefulWidget {
@@ -213,10 +215,68 @@ class _SessionEditSheetState extends ConsumerState<SessionEditSheet> {
                 ),
                 onChanged: (v) => setState(() => _notes = v),
               ),
+              // A visible way to delete (the swipe on History is
+              // unadvertised). Not offered for the timer's unsaved draft,
+              // which has its own Discard.
+              if (_session != null && !_isDraft) ...[
+                const SizedBox(height: AppSpacing.xl),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    icon: const Icon(LucideIcons.trash2),
+                    label: const Text('Delete session'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                      minimumSize: const Size(48, 48),
+                    ),
+                    onPressed: _saving ? null : _delete,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  bool get _isDraft {
+    final t = ref.read(timerNotifierProvider);
+    return t is TimerStopped && t.session.id == widget.sessionId;
+  }
+
+  /// Deleting from here is deliberate, so it does not ask (fleet delete
+  /// ruling). The editor closes and History offers an Undo that never
+  /// times out; Undo writes the session back as it was stored.
+  Future<void> _delete() async {
+    final s = _session!;
+    final repo = ref.read(sessionsRepositoryProvider);
+    final undo = ref.read(sessionUndoControllerProvider);
+    final timer = ref.read(timerNotifierProvider.notifier);
+    _saving = true;
+    final result = await repo.deleteSession(s.id);
+    _saving = false;
+    if (!mounted) return;
+    final ok = result.fold((failure) {
+      debugPrint("Couldn't delete the session: ${failure.message}");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Couldn’t delete the session. Please try again.'),
+      ));
+      return false;
+    }, (_) => true);
+    if (!ok) return;
+    await timer.refreshWidget(s.dateDay);
+    if (!mounted) return;
+    context.pop();
+    final label = Duration(seconds: s.durationSecs).toHoursLabel();
+    final day = DateFormat('EEE, MMM d')
+        .format(DateTime.fromMillisecondsSinceEpoch(s.startTime));
+    undo.show(
+      message: 'Deleted $label on $day',
+      onUndo: () async {
+        await repo.saveSession(s);
+        await timer.refreshWidget(s.dateDay);
+      },
     );
   }
 
