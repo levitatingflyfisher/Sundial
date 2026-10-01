@@ -39,8 +39,8 @@ void main() {
           ),
         ),
       ),
-      // SundialFace draws its own text via TextPainter (no google_fonts), so a
-      // plain Roboto-backed Material3 theme is all the colorScheme it reads.
+      // SundialFace draws its own text via TextPainter in the bundled Nunito,
+      // so the theme only supplies the colorScheme it reads.
       theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
       sizes: const {
         'phone': Size(360, 800),
@@ -64,6 +64,36 @@ void main() {
               elapsed: Duration(hours: 1, minutes: 23),
               sessionMax: Duration(hours: 3),
               style: FlowTimerStyle.gnomon,
+              isRunning: false,
+            ),
+          ),
+        ),
+      ),
+      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+      sizes: const {
+        'phone': Size(360, 800),
+        'narrow': Size(320, 800),
+      },
+      textScales: const <double>[1.0, 3.0],
+    );
+  });
+
+  // Arc's caption sits under the time inside one ring (ruling Q-S1 added it
+  // to the sweep: at large text it once overlapped the time).
+  testWidgets('SundialFace arc responsive golden sweep', (tester) async {
+    await goldenAtSizes(
+      tester,
+      name: 'sundial_face_arc',
+      home: const Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 240,
+            height: 240,
+            child: SundialFace(
+              yearTotal: Duration.zero,
+              elapsed: Duration(hours: 1, minutes: 23),
+              sessionMax: Duration(hours: 3),
+              style: FlowTimerStyle.arc,
               isRunning: false,
             ),
           ),

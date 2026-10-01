@@ -3,6 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
 import 'package:sundial/shared/extensions/duration_ext.dart';
 
+/// The dial's painted text in the app's bundled UI family. TextPainter does
+/// not inherit the theme, so without this the face fell back to the platform
+/// font. Nunito is openhearth_design's package font (no runtime fetch).
+TextStyle _dialStyle(
+        {required Color color, required double fontSize, FontWeight? fontWeight}) =>
+    TextStyle(
+      fontFamily: 'Nunito',
+      package: 'openhearth_design',
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+    );
+
 /// Where the session stands on the dial (visual-04, ruling Q-D5): one full
 /// sweep is [lapLength] (3h), and past it the arc wraps for another lap
 /// instead of standing still. Exactly one lap is a full first sweep, not an
@@ -26,24 +39,59 @@ String _scaleCaption(Duration elapsed, Duration lapLength) {
   return l.lap > 1 ? 'Lap ${l.lap} · $scale' : 'One sweep = ${_lapLength(lapLength)}';
 }
 
-/// Draws [text] centred on [pos] (the faces' small print), at the reader's
-/// text size ([scaler], capped at 2x by the face).
+/// Draws [text] (the faces' small print) on one line, at the reader's text
+/// size ([scaler], capped at 2x by the face) when it fits (ruling Q-S1).
 ///
-/// [maxWidth] keeps it inside the dial: at large text it wraps onto a second
-/// line instead of running across the ring.
-void _paintCaption(Canvas c, Offset pos, String text, Color color,
-    [TextScaler scaler = TextScaler.noScaling,
-    double maxWidth = double.infinity]) {
-  final tp = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-    textScaler: scaler,
-  )..layout(maxWidth: maxWidth);
-  tp.paint(c, pos.translate(-tp.width / 2, -tp.height / 2));
+/// Its 1x line is centred on [anchor]; larger text hangs from that same top,
+/// so it grows downward, away from the text above it. [freeWidth] gives the
+/// open width for a line spanning top..bottom (inside the ring, inside the
+/// box); when the reader's size doesn't fit there, the caption shrinks just
+/// enough to fit, and never below 1x. Wrapping was the old answer, and it
+/// ran over the time, the year total and the Gnomon's base line.
+void _paintCaption(Canvas c, Offset anchor, String text, Color color,
+    TextScaler scaler, double Function(double top, double bottom) freeWidth) {
+  TextPainter at(TextScaler s) => TextPainter(
+        text: TextSpan(
+          text: text,
+          style:
+              _dialStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        textScaler: s,
+      )..layout();
+  final one = at(TextScaler.noScaling);
+  final top = anchor.dy - one.height / 2;
+  bool fits(TextPainter tp) => tp.width <= freeWidth(top, top + tp.height);
+
+  var tp = at(scaler);
+  if (!fits(tp)) {
+    // Largest factor in [1, reader's] that fits; text width grows with it.
+    final hi0 = scaler.scale(10) / 10;
+    var lo = math.min(1.0, hi0), hi = hi0;
+    for (var i = 0; i < 16; i++) {
+      final mid = (lo + hi) / 2;
+      final t = at(TextScaler.linear(mid));
+      if (fits(t)) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+      t.dispose();
+    }
+    tp.dispose();
+    tp = at(TextScaler.linear(lo));
+  }
+  tp.paint(c, Offset(anchor.dx - tp.width / 2, top));
+  tp.dispose();
+  one.dispose();
+}
+
+/// The open width inside a circle of radius [r] for a line spanning
+/// [top]..[bottom]: the chord at whichever edge sits farther from [center].
+double _chordWidth(Offset center, double r, double top, double bottom) {
+  final dy = math.max((top - center.dy).abs(), (bottom - center.dy).abs());
+  return dy >= r ? 0 : 2 * math.sqrt(r * r - dy * dy);
 }
 
 class SundialFace extends StatefulWidget {
@@ -259,10 +307,11 @@ class GnomonPainter extends CustomPainter {
     _drawText(canvas, center.translate(0, -30), _fmt(), 20, textColor);
 
     // The scale, stated: what a full sweep means (and the lap past it).
+    // Below the base line there is open ground down to the box's edge.
     _paintCaption(canvas, center.translate(0, 14),
         _scaleCaption(elapsed, maxDuration), textColor.withValues(alpha: 0.6),
         captionScaler,
-        size.shortestSide * 0.6);
+        (top, bottom) => bottom <= size.height ? size.shortestSide * 0.6 : 0);
   }
 
   void _arc(Canvas c, Offset center, double r, Color color, double start,
@@ -320,7 +369,7 @@ class GnomonPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
+        style: _dialStyle(
             color: color, fontSize: size, fontWeight: FontWeight.w700),
       ),
       textDirection: TextDirection.ltr,
@@ -438,7 +487,7 @@ class ArcPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: _fmt(),
-        style: TextStyle(
+        style: _dialStyle(
             color: textColor, fontSize: 22, fontWeight: FontWeight.w700),
       ),
       textDirection: TextDirection.ltr,
@@ -446,10 +495,12 @@ class ArcPainter extends CustomPainter {
     tp.paint(canvas, center.translate(-tp.width / 2, -tp.height / 2));
 
     // The scale, stated: what a full sweep means (and the lap past it).
+    // Inside the ring's stroke (10 wide), with a little air.
     _paintCaption(canvas, center.translate(0, tp.height / 2 + 10),
         _scaleCaption(elapsed, maxDuration), textColor.withValues(alpha: 0.6),
         captionScaler,
-        size.shortestSide * 0.6);
+        (top, bottom) => math.min(size.shortestSide * 0.6,
+            _chordWidth(center, radius - 7, top, bottom)));
   }
 
   String _fmt() {
@@ -546,7 +597,7 @@ class DualRingPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: _fmtSession(),
-        style: TextStyle(
+        style: _dialStyle(
             color: textColor, fontSize: 20, fontWeight: FontWeight.w700),
       ),
       textDirection: TextDirection.ltr,
@@ -558,7 +609,7 @@ class DualRingPainter extends CustomPainter {
       text: TextSpan(
         text: '${yearTotal.toHoursLabel()} / ${annualGoalHours}h',
         style:
-            TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 10),
+            _dialStyle(color: textColor.withValues(alpha: 0.5), fontSize: 10),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -572,7 +623,9 @@ class DualRingPainter extends CustomPainter {
         _scaleCaption(elapsed, maxDuration),
         textColor.withValues(alpha: 0.6),
         captionScaler,
-        size.shortestSide * 0.6);
+        // Inside the inner ring's stroke (10 wide), with a little air.
+        (top, bottom) => math.min(size.shortestSide * 0.6,
+            _chordWidth(center, innerR - 7, top, bottom)));
   }
 
   void _ring(Canvas c, Offset center, double r, Color color, double start,

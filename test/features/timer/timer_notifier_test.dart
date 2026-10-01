@@ -16,6 +16,10 @@ class _FailingSessionsRepo implements SessionsRepository {
   @override
   Future<Either<StorageFailure, Unit>> saveSession(Session s) async =>
       const Left(StorageFailure('disk full'));
+  // The home-widget refresh reads today's total after every write; without
+  // this the fake threw NoSuchMethodError into the test log.
+  @override
+  Stream<int> watchSecondsForDay(String dateDay) => Stream.value(0);
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
