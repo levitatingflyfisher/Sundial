@@ -50,7 +50,7 @@ it, in 5 minutes" tutorial. If you write one, put it in `docs/tutorials/`.
 - **[Architecture Decision Records](adr/)** — why each load-bearing choice was made.
 - **[Personas](explanation/personas.md)**: who agents play when they test the UI, with scenarios.
 - **[Concepts](concepts.md)** — sessions, the timer state machine, goals & pacing,
-  badges, Focus vs Full mode.
+  badges, Flow vs Rich mode.
 - **[Privacy model](privacy-model.md)** — what leaves the device (nothing), and how
   to verify it.
 - **[Limitations](limitations.md)** — read before adopting. What it does *not* do.

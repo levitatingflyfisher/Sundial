@@ -75,11 +75,11 @@ airplane mode and the app is unchanged (see [privacy-model.md](privacy-model.md)
 
 ## 4. Two surfaces, one humane default
 
-The same data renders two ways. **Full mode** is the dashboard — history, stats,
-charts, badges, per-person profiles. **Focus mode** is one calm screen: seven dots
+The same data renders two ways. **Rich mode** is the dashboard — history, stats,
+charts, badges, per-person profiles. **Flow mode** is one calm screen: seven dots
 for the week, the timer, and a single line like `247h / 1000h this year`. No streak
 counter with a loss mechanic, no color-coded shame, no nag. The dot row answers one
-question — *did I actually get out this week?* — and stops there. Focus mode is not a
+question — *did I actually get out this week?* — and stops there. Flow mode is not a
 lesser tier or a paywall; it is a lens over the same sessions, one preference flag
 away. The point is that the quiet option is a first-class citizen, because for many
 people the number and the habit are all they want.
@@ -106,7 +106,7 @@ A white paper that overclaims is marketing. Honestly, as of `0.1.0`:
 Android widget + notification controls), manual entry, unrestricted editing, history,
 the full stats set (today/month/year/all-time, cumulative chart, heatmap, monthly
 breakdown), goals with amber-when-behind pacing, badges with confetti, multiple local
-profiles, JSON/PDF/text export and JSON import, Focus and Full modes, and the usual
+profiles, JSON/PDF/text export and JSON import, Flow and Rich modes, and the usual
 preferences — behind a Clean-Architecture codebase with unit, widget, golden, and
 integration tests, shipping as an Android APK and a web PWA with bundled (non-fetched)
 fonts.

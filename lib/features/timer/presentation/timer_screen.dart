@@ -143,6 +143,8 @@ class _TimerControls extends StatelessWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: const Text('Session saved'),
+                  // Add notes is a convenience: the line lapses (C14).
+                  persist: false,
                   action: SnackBarAction(
                     label: 'Add notes',
                     onPressed: () => context
@@ -174,6 +176,8 @@ class _TimerControls extends StatelessWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: const Text('Session saved'),
+                  // Add notes is a convenience: the line lapses (C14).
+                  persist: false,
                   action: SnackBarAction(
                     label: 'Add notes',
                     onPressed: () => context

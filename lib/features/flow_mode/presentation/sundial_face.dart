@@ -3,6 +3,49 @@ import 'package:flutter/material.dart';
 import 'package:sundial/features/settings/domain/user_prefs.dart';
 import 'package:sundial/shared/extensions/duration_ext.dart';
 
+/// Where the session stands on the dial (visual-04, ruling Q-D5): one full
+/// sweep is [lapLength] (3h), and past it the arc wraps for another lap
+/// instead of standing still. Exactly one lap is a full first sweep, not an
+/// empty second.
+({double progress, int lap}) sessionLap(Duration elapsed, Duration lapLength) {
+  final lapSecs = lapLength.inSeconds;
+  final secs = elapsed.inSeconds;
+  if (lapSecs <= 0 || secs <= 0) return (progress: 0.0, lap: 1);
+  if (secs % lapSecs == 0) return (progress: 1.0, lap: secs ~/ lapSecs);
+  return (progress: (secs % lapSecs) / lapSecs, lap: secs ~/ lapSecs + 1);
+}
+
+/// "3h" (or "90m"): a lap's length as the face prints it.
+String _lapLength(Duration d) =>
+    d.inMinutes % 60 == 0 ? '${d.inHours}h' : '${d.inMinutes}m';
+
+/// The face's statement of its own scale, with the lap once past the first.
+String _scaleCaption(Duration elapsed, Duration lapLength) {
+  final l = sessionLap(elapsed, lapLength);
+  final scale = 'one sweep = ${_lapLength(lapLength)}';
+  return l.lap > 1 ? 'Lap ${l.lap} · $scale' : 'One sweep = ${_lapLength(lapLength)}';
+}
+
+/// Draws [text] centred on [pos] (the faces' small print), at the reader's
+/// text size ([scaler], capped at 2x by the face).
+///
+/// [maxWidth] keeps it inside the dial: at large text it wraps onto a second
+/// line instead of running across the ring.
+void _paintCaption(Canvas c, Offset pos, String text, Color color,
+    [TextScaler scaler = TextScaler.noScaling,
+    double maxWidth = double.infinity]) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+    textScaler: scaler,
+  )..layout(maxWidth: maxWidth);
+  tp.paint(c, pos.translate(-tp.width / 2, -tp.height / 2));
+}
+
 class SundialFace extends StatefulWidget {
   const SundialFace({
     super.key,
@@ -71,6 +114,10 @@ class _SundialFaceState extends State<SundialFace>
     return AnimatedBuilder(
       animation: _sunScale,
       builder: (context, _) {
+        // The small print follows the reader's text size, capped at 2x so it
+        // stays inside the dial.
+        final captionScaler =
+            MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 2.0);
         final painter = switch (widget.style) {
           FlowTimerStyle.gnomon => GnomonPainter(
               elapsed: widget.elapsed,
@@ -80,6 +127,7 @@ class _SundialFaceState extends State<SundialFace>
               sunColor: colors.primary,
               textColor: colors.onSurface,
               sunScale: _sunScale.value,
+              captionScaler: captionScaler,
             ),
           FlowTimerStyle.arc => ArcPainter(
               elapsed: widget.elapsed,
@@ -89,6 +137,7 @@ class _SundialFaceState extends State<SundialFace>
               sunColor: colors.primary,
               textColor: colors.onSurface,
               sunScale: _sunScale.value,
+              captionScaler: captionScaler,
             ),
           FlowTimerStyle.dualRing => DualRingPainter(
               elapsed: widget.elapsed,
@@ -100,9 +149,22 @@ class _SundialFaceState extends State<SundialFace>
               sunColor: colors.primary,
               textColor: colors.onSurface,
               sunScale: _sunScale.value,
+              captionScaler: captionScaler,
             ),
         };
-        return CustomPaint(painter: painter, size: Size.infinite);
+        final lap = sessionLap(widget.elapsed, widget.sessionMax);
+        final h = widget.elapsed.inHours;
+        final m = widget.elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final sec =
+            widget.elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+        final hours = widget.sessionMax.inMinutes % 60 == 0
+            ? '${widget.sessionMax.inHours} hours'
+            : '${widget.sessionMax.inMinutes} minutes';
+        return Semantics(
+          label: 'Session $h:$m:$sec; one sweep of the dial is $hours'
+              '${lap.lap > 1 ? ', on lap ${lap.lap}' : ''}',
+          child: CustomPaint(painter: painter, size: Size.infinite),
+        );
       },
     );
   }
@@ -119,10 +181,14 @@ class GnomonPainter extends CustomPainter {
     required this.sunColor,
     required this.textColor,
     this.sunScale = 1.0,
+    this.captionScaler = TextScaler.noScaling,
   });
 
   final Duration elapsed;
   final Duration maxDuration;
+
+  /// The reader's text scale for the small print, capped at 2x.
+  final TextScaler captionScaler;
   final Color sweepColor;
   final Color trackColor;
   final Color sunColor;
@@ -134,11 +200,15 @@ class GnomonPainter extends CustomPainter {
     if (maxDuration == Duration.zero) return;
     final center = Offset(size.width / 2, size.height * 0.82);
     final radius = size.width * 0.42;
-    final progress =
-        (elapsed.inSeconds / maxDuration.inSeconds).clamp(0.0, 1.0);
+    final lap = sessionLap(elapsed, maxDuration);
+    final progress = lap.progress;
 
-    // Track
+    // Track; past the first lap, the finished lap shows faintly under it.
     _arc(canvas, center, radius, trackColor, math.pi, math.pi, 10);
+    if (lap.lap > 1) {
+      _arc(canvas, center, radius, sweepColor.withValues(alpha: 0.35),
+          math.pi, math.pi, 10);
+    }
     // Sweep
     if (progress > 0) {
       _arc(canvas, center, radius, sweepColor, math.pi, math.pi * progress, 10);
@@ -187,6 +257,12 @@ class GnomonPainter extends CustomPainter {
 
     // Elapsed text
     _drawText(canvas, center.translate(0, -30), _fmt(), 20, textColor);
+
+    // The scale, stated: what a full sweep means (and the lap past it).
+    _paintCaption(canvas, center.translate(0, 14),
+        _scaleCaption(elapsed, maxDuration), textColor.withValues(alpha: 0.6),
+        captionScaler,
+        size.shortestSide * 0.6);
   }
 
   void _arc(Canvas c, Offset center, double r, Color color, double start,
@@ -210,6 +286,8 @@ class GnomonPainter extends CustomPainter {
       (30 * 60, '30m'),
       (60 * 60, '1h'),
       (120 * 60, '2h'),
+      // The end of the sweep is labelled too: the scale is on the face.
+      (maxDuration.inSeconds, _lapLength(maxDuration)),
     ];
     for (final (secs, label) in milestones) {
       final frac = secs / maxDuration.inSeconds;
@@ -260,6 +338,7 @@ class GnomonPainter extends CustomPainter {
   @override
   bool shouldRepaint(GnomonPainter old) =>
       old.elapsed != elapsed ||
+      old.captionScaler != captionScaler ||
       old.sunScale != sunScale ||
       old.sweepColor != sweepColor ||
       old.trackColor != trackColor;
@@ -276,10 +355,14 @@ class ArcPainter extends CustomPainter {
     required this.sunColor,
     required this.textColor,
     this.sunScale = 1.0,
+    this.captionScaler = TextScaler.noScaling,
   });
 
   final Duration elapsed;
   final Duration maxDuration;
+
+  /// The reader's text scale for the small print, capped at 2x.
+  final TextScaler captionScaler;
   final Color sweepColor;
   final Color trackColor;
   final Color sunColor;
@@ -291,14 +374,14 @@ class ArcPainter extends CustomPainter {
     if (maxDuration == Duration.zero) return;
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width * 0.42;
-    final progress =
-        (elapsed.inSeconds / maxDuration.inSeconds).clamp(0.0, 1.0);
+    final lap = sessionLap(elapsed, maxDuration);
+    final progress = lap.progress;
 
-    // Track
+    // Track; past the first lap, the finished lap shows faintly under it.
     canvas.drawCircle(
       center, radius,
       Paint()
-        ..color = trackColor
+        ..color = lap.lap > 1 ? sweepColor.withValues(alpha: 0.35) : trackColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 10,
     );
@@ -361,6 +444,12 @@ class ArcPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, center.translate(-tp.width / 2, -tp.height / 2));
+
+    // The scale, stated: what a full sweep means (and the lap past it).
+    _paintCaption(canvas, center.translate(0, tp.height / 2 + 10),
+        _scaleCaption(elapsed, maxDuration), textColor.withValues(alpha: 0.6),
+        captionScaler,
+        size.shortestSide * 0.6);
   }
 
   String _fmt() {
@@ -373,6 +462,7 @@ class ArcPainter extends CustomPainter {
   @override
   bool shouldRepaint(ArcPainter old) =>
       old.elapsed != elapsed ||
+      old.captionScaler != captionScaler ||
       old.sunScale != sunScale ||
       old.sweepColor != sweepColor ||
       old.trackColor != trackColor;
@@ -391,10 +481,14 @@ class DualRingPainter extends CustomPainter {
     required this.sunColor,
     required this.textColor,
     this.sunScale = 1.0,
+    this.captionScaler = TextScaler.noScaling,
   });
 
   final Duration elapsed;
   final Duration maxDuration;
+
+  /// The reader's text scale for the small print, capped at 2x.
+  final TextScaler captionScaler;
   final int annualGoalHours;
   final Duration yearTotal;
   final Color sweepColor;
@@ -412,8 +506,8 @@ class DualRingPainter extends CustomPainter {
 
     final yearProgress =
         (yearTotal.inSeconds / (annualGoalHours * 3600)).clamp(0.0, 1.0);
-    final sessionProgress =
-        (elapsed.inSeconds / maxDuration.inSeconds).clamp(0.0, 1.0);
+    final lap = sessionLap(elapsed, maxDuration);
+    final sessionProgress = lap.progress;
 
     // Outer ring (annual)
     _ring(canvas, center, outerR, trackColor, 0, 2 * math.pi, 6);
@@ -422,8 +516,11 @@ class DualRingPainter extends CustomPainter {
           -math.pi / 2, 2 * math.pi * yearProgress, 6);
     }
 
-    // Inner ring (session)
-    _ring(canvas, center, innerR, trackColor, 0, 2 * math.pi, 10);
+    // Inner ring (session); past the first lap the finished lap shows
+    // faintly under the current one.
+    _ring(canvas, center, innerR,
+        lap.lap > 1 ? sweepColor.withValues(alpha: 0.35) : trackColor,
+        0, 2 * math.pi, 10);
     if (sessionProgress > 0) {
       _ring(canvas, center, innerR, sweepColor,
           -math.pi / 2, 2 * math.pi * sessionProgress, 10);
@@ -467,6 +564,15 @@ class DualRingPainter extends CustomPainter {
     )..layout();
     yearTp.paint(
         canvas, center.translate(-yearTp.width / 2, tp.height / 2 + 2));
+
+    // The scale, stated: what a full sweep of the inner ring means.
+    _paintCaption(
+        canvas,
+        center.translate(0, tp.height / 2 + yearTp.height + 12),
+        _scaleCaption(elapsed, maxDuration),
+        textColor.withValues(alpha: 0.6),
+        captionScaler,
+        size.shortestSide * 0.6);
   }
 
   void _ring(Canvas c, Offset center, double r, Color color, double start,
@@ -494,6 +600,7 @@ class DualRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(DualRingPainter old) =>
       old.elapsed != elapsed ||
+      old.captionScaler != captionScaler ||
       old.sunScale != sunScale ||
       old.yearTotal != yearTotal ||
       old.annualGoalHours != annualGoalHours ||

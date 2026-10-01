@@ -16,21 +16,12 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final _controller = PageController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _next() => _controller.nextPage(
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      );
-
-  Future<void> _select(AppMode mode) async {
-    await ref.read(settingsRepositoryProvider).setAppMode(mode);
+  /// Flow is the default (ruling Q-D1): Get started opens straight into
+  /// the timer, and Rich is offered later, from Flow, once there is a
+  /// session to look back on. Storing the mode is also what lets the
+  /// router out of onboarding.
+  Future<void> _start() async {
+    await ref.read(settingsRepositoryProvider).setAppMode(AppMode.flow);
     if (mounted) context.go('/timer');
   }
 
@@ -39,14 +30,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Scaffold(
       body: OhPage(
         padding: EdgeInsets.zero,
-        child: PageView(
-          controller: _controller,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _WelcomePage(onNext: _next),
-            _ModePage(onSelect: _select),
-          ],
-        ),
+        child: _WelcomePage(onNext: _start),
       ),
     );
   }
@@ -112,114 +96,6 @@ class _WelcomePage extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Page 2: Mode selection ───────────────────────────────────────────────────
-
-class _ModePage extends StatelessWidget {
-  const _ModePage({required this.onSelect});
-  final Future<void> Function(AppMode) onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Spacer(),
-            Text(
-              'How do you want to start\nusing Sundial?',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Switch between Flow and Rich any time with one tap.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            _ModeCard(
-              title: 'Flow',
-              subtitle: 'Timer + yearly total. Nothing else.',
-              isRecommended: true,
-              onTap: () => onSelect(AppMode.flow),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _ModeCard(
-              title: 'Rich',
-              subtitle: 'History, stats, badges, goals, notes.',
-              isRecommended: false,
-              onTap: () => onSelect(AppMode.rich),
-            ),
-            const Spacer(),
-            Text(
-              'Both free, forever. Your data is always the same; only the view changes.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeCard extends StatelessWidget {
-  const _ModeCard({
-    required this.title,
-    required this.subtitle,
-    required this.isRecommended,
-    required this.onTap,
-  });
-  final String title;
-  final String subtitle;
-  final bool isRecommended;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isRecommended ? cs.primary : cs.outline,
-            width: isRecommended ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: isRecommended ? cs.primary.withValues(alpha: 0.06) : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    )),
           ],
         ),
       ),

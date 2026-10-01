@@ -1,4 +1,5 @@
 // lib/features/sessions/presentation/history_screen.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +44,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   void initState() {
     super.initState();
     _searchCtrl.addListener(() {
-      setState(() => _query = _searchCtrl.text.trim().toLowerCase());
+      setState(() {
+        _query = _searchCtrl.text.trim().toLowerCase();
+        // A calendar has no meaning for a text search (Q-D3): typing a
+        // query shows the List with the matches.
+        if (_query.isNotEmpty && _viewMode == _ViewMode.calendar) {
+          _viewMode = _ViewMode.list;
+          _calendarSelectedDay = null;
+        }
+      });
     });
   }
 
@@ -102,19 +111,23 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ButtonSegment(
                     value: _ViewMode.calendar,
                     icon: Icon(LucideIcons.calendarDays, size: 18),
-                    label: Text('Calendar'),
+                    label: _SegmentWord('Calendar'),
                   ),
                   ButtonSegment(
                     value: _ViewMode.list,
                     icon: Icon(LucideIcons.list, size: 18),
-                    label: Text('List'),
+                    label: _SegmentWord('List'),
                   ),
                 ],
                 selected: {_viewMode},
-                onSelectionChanged: (v) => setState(() {
-                  _viewMode = v.single;
-                  _calendarSelectedDay = null;
-                }),
+                onSelectionChanged: (v) {
+                  // Back to the calendar drops the query it cannot show.
+                  if (v.single == _ViewMode.calendar) _searchCtrl.clear();
+                  setState(() {
+                    _viewMode = v.single;
+                    _calendarSelectedDay = null;
+                  });
+                },
               ),
             ),
           ),
@@ -210,8 +223,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 ),
               ),
             ),
-          if (_viewMode == _ViewMode.list)
-            Padding(
+          // Above both views: on the calendar, typing switches to the List.
+          Padding(
               padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md, 0, AppSpacing.md, AppSpacing.xs),
               child: TextField(
@@ -451,87 +464,103 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final List<Session> detailSessions;
     final String emptyMsg;
     if (_calendarSelectedDay != null) {
-      detailSessions = List<Session>.from(
-          sessionsByDay[_calendarSelectedDay] ?? [])
-        ..sort((a, b) => b.startTime.compareTo(a.startTime));
+      detailSessions =
+          List<Session>.from(sessionsByDay[_calendarSelectedDay] ?? [])
+            ..sort((a, b) => b.startTime.compareTo(a.startTime));
       emptyMsg = 'No sessions on this day';
     } else {
-      detailSessions = sessionsByDay.values
-          .expand((e) => e)
-          .toList()
+      detailSessions = sessionsByDay.values.expand((e) => e).toList()
         ..sort((a, b) => b.startTime.compareTo(a.startTime));
-      emptyMsg =
-          'No sessions in ${DateFormat('MMMM').format(_calendarMonth)}';
+      emptyMsg = 'No sessions in ${DateFormat('MMMM').format(_calendarMonth)}';
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.sm),
-          child: _buildCalendarGrid(sessionsByDay, cs, weekStart),
+    // One scroll for the grid and the day's sessions: at large text the
+    // grid alone can be taller than the screen, and a fixed grid above an
+    // Expanded list overflowed (batch 1's 320dp x 2-3 finding).
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.sm),
+            child: _buildCalendarGrid(sessionsByDay, cs, weekStart),
+          ),
         ),
-        const Divider(height: 1),
-        Expanded(
-          child: detailSessions.isEmpty
-              ? Center(
-                  child: Text(
-                    emptyMsg,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: detailSessions.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final s = detailSessions[i];
-                    // In Everyone view with 2+ profiles, show a colored dot
-                    // so it's clear who a session belongs to.
-                    final owner = (profiles.length >= 2 &&
-                            _profileFilter == null &&
-                            s.profileId != null)
-                        ? profiles.cast<Profile?>().firstWhere(
-                            (p) => p?.id == s.profileId,
-                            orElse: () => null)
-                        : null;
-                    return SessionCard(
-                      session: s,
-                      profile: owner,
-                      showEveryoneTag: _profileFilter != null,
-                      onTap: () =>
-                          context.push('/sessions/${s.id}/edit', extra: s),
-                      onDelete: () async {
-                        await ref
-                            .read(sessionsRepositoryProvider)
-                            .deleteSession(s.id);
-                        await ref
-                            .read(timerNotifierProvider.notifier)
-                            .refreshWidget(s.dateDay);
-                      },
-                    );
-                  },
+        const SliverToBoxAdapter(child: Divider(height: 1)),
+        if (detailSessions.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  emptyMsg,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: cs.onSurfaceVariant),
                 ),
-        ),
+              ),
+            ),
+          )
+        else
+          SliverList.separated(
+            itemCount: detailSessions.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final s = detailSessions[i];
+              // In Everyone view with 2+ profiles, show a colored dot
+              // so it's clear who a session belongs to.
+              final owner = (profiles.length >= 2 &&
+                      _profileFilter == null &&
+                      s.profileId != null)
+                  ? profiles.cast<Profile?>().firstWhere(
+                      (p) => p?.id == s.profileId,
+                      orElse: () => null)
+                  : null;
+              return SessionCard(
+                session: s,
+                profile: owner,
+                showEveryoneTag: _profileFilter != null,
+                onTap: () => context.push('/sessions/${s.id}/edit', extra: s),
+                onDelete: () async {
+                  await ref
+                      .read(sessionsRepositoryProvider)
+                      .deleteSession(s.id);
+                  await ref
+                      .read(timerNotifierProvider.notifier)
+                      .refreshWidget(s.dateDay);
+                },
+              );
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildCalendarGrid(
-      Map<String, List<Session>> sessionsByDay, ColorScheme cs,
-      WeekStart weekStartPref) {
+  Widget _buildCalendarGrid(Map<String, List<Session>> sessionsByDay,
+      ColorScheme cs, WeekStart weekStartPref) {
     final now = DateTime.now();
-    final firstDay =
-        DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+    final firstDay = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
     final daysInMonth =
         DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
     // weekday: 1=Mon...7=Sun
     final startOffset = weekStartPref == WeekStart.sunday
-        ? firstDay.weekday % 7      // Sun=0, Mon=1, ..., Sat=6
-        : firstDay.weekday - 1;     // Mon=0, Tue=1, ..., Sun=6
+        ? firstDay.weekday % 7 // Sun=0, Mon=1, ..., Sat=6
+        : firstDay.weekday - 1; // Mon=0, Tue=1, ..., Sun=6
     final rowCount = ((startOffset + daysInMonth) / 7).ceil();
+
+    // A week row is as tall as its two lines need at this text size (the
+    // date at full scale, the duration capped at 1.3x: it is secondary, and
+    // the list under the grid repeats it), never less than a 48 px target.
+    // A fixed 48 px clipped both from 2x up at 320dp.
+    final scaler = MediaQuery.textScalerOf(context);
+    final durationScaler = scaler.clamp(maxScaleFactor: 1.3);
+    final cellHeight = math.max(
+      48.0,
+      8 + scaler.scale(12) * 1.25 + durationScaler.scale(11) * 1.25,
+    );
 
     final dayLabels = weekStartPref == WeekStart.sunday
         ? const ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -545,12 +574,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           children: dayLabels
               .map((l) => Expanded(
                     child: Center(
-                      child: Text(
-                        l,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                      // Two letters on one line, scaled down rather than
+                      // broken as "S/u" at large text.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          l,
+                          maxLines: 1,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
                       ),
                     ),
                   ))
@@ -561,86 +596,105 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ...List.generate(rowCount, (row) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: List.generate(7, (col) {
-                final dayNum = row * 7 + col - startOffset + 1;
-                if (dayNum < 1 || dayNum > daysInMonth) {
-                  return const Expanded(child: SizedBox());
-                }
-                final dateStr =
-                    '${_calendarMonth.year}-${_calendarMonth.month.toString().padLeft(2, '0')}-${dayNum.toString().padLeft(2, '0')}';
-                final hasSessions = sessionsByDay.containsKey(dateStr);
-                final isSelected = _calendarSelectedDay == dateStr;
-                final isToday = now.year == _calendarMonth.year &&
-                    now.month == _calendarMonth.month &&
-                    now.day == dayNum;
+            child: SizedBox(
+              height: cellHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: List.generate(7, (col) {
+                  final dayNum = row * 7 + col - startOffset + 1;
+                  if (dayNum < 1 || dayNum > daysInMonth) {
+                    return const Expanded(child: SizedBox());
+                  }
+                  final dateStr =
+                      '${_calendarMonth.year}-${_calendarMonth.month.toString().padLeft(2, '0')}-${dayNum.toString().padLeft(2, '0')}';
+                  final hasSessions = sessionsByDay.containsKey(dateStr);
+                  final isSelected = _calendarSelectedDay == dateStr;
+                  final isToday = now.year == _calendarMonth.year &&
+                      now.month == _calendarMonth.month &&
+                      now.day == dayNum;
 
-                final totalSecs = hasSessions
-                    ? sessionsByDay[dateStr]!
-                        .fold(0, (sum, s) => sum + s.durationSecs)
-                    : 0;
-                final durationLabel = hasSessions
-                    ? Duration(seconds: totalSecs).toHoursLabel()
-                    : null;
+                  final totalSecs = hasSessions
+                      ? sessionsByDay[dateStr]!
+                          .fold(0, (sum, s) => sum + s.durationSecs)
+                      : 0;
+                  final durationLabel = hasSessions
+                      ? Duration(seconds: totalSecs).toHoursLabel()
+                      : null;
 
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() {
-                      _calendarSelectedDay = isSelected ? null : dateStr;
-                    }),
-                    child: Container(
-                      height: 48,
-                      margin:
-                          const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? cs.primary
-                            : hasSessions
-                                ? AppColors.sage500
-                                    .withValues(alpha: 0.25)
-                                : null,
-                        border: isToday && !isSelected
-                            ? Border.all(
-                                color: cs.primary, width: 1.5)
-                            : null,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '$dayNum',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: hasSessions
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color:
-                                  isSelected ? cs.onPrimary : null,
-                            ),
-                          ),
-                          if (durationLabel != null)
-                            Text(
-                              durationLabel,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? cs.onPrimary
-                                        .withValues(alpha: 0.85)
-                                    : cs.onSurfaceVariant,
-                                height: 1.2,
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _calendarSelectedDay = isSelected ? null : dateStr;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? cs.primary
+                              : hasSessions
+                                  ? AppColors.sage500.withValues(alpha: 0.25)
+                                  : null,
+                          border: isToday && !isSelected
+                              ? Border.all(color: cs.primary, width: 1.5)
+                              : null,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        // A cell is a seventh of the width: the date and
+                        // its total scale down together to fit rather than
+                        // wrap or clip; the row height grows with the text.
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$dayNum',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: hasSessions
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected ? cs.onPrimary : null,
+                                ),
                               ),
-                            ),
-                        ],
+                              if (durationLabel != null)
+                                Text(
+                                  durationLabel,
+                                  textScaler: durationScaler,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isSelected
+                                        ? cs.onPrimary.withValues(alpha: 0.85)
+                                        : cs.onSurfaceVariant,
+                                    height: 1.2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           );
         }),
       ],
     );
   }
+}
+
+/// A segment's word, kept whole: past the segment's width it shrinks to fit
+/// rather than breaking mid-word ("Calen / dar" at 320 dp and 2x-3x text).
+class _SegmentWord extends StatelessWidget {
+  const _SegmentWord(this.word);
+  final String word;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(word, maxLines: 1, softWrap: false),
+      );
 }

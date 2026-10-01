@@ -23,13 +23,13 @@ What's shipped, partial, or planned — grounded in the code as of `0.1.0`. Lege
 | Heatmap | Shipped | |
 | Monthly breakdown | Shipped | Bar per month of the current year |
 | Badges + confetti | Shipped | Fixed milestone set; **revocable** (see caveat) |
-| Focus / Full modes | Shipped | Single `AppMode` preference |
-| Focus 7-day dot row | Shipped | Tap today's dot to edit today's total |
+| Flow / Rich modes | Shipped | Single `AppMode` preference |
+| Flow 7-day dot row | Shipped | Tap today's dot to edit today's total |
 | Multiple profiles | Shipped | **Local** only — not accounts/sync |
 | Export: JSON / PDF / plain text | Shipped | |
 | Import: JSON | Shipped | Row-tolerant |
 | Preferences: theme (light / dark / follow phone, in the app bar), 12/24h, week start, timer style | Shipped | See [data-model.md](data-model.md) |
-| Onboarding (mode choice) | Shipped | |
+| Onboarding (Flow by default; Rich offered from Flow after the first session; History, Stats and Settings open from Flow) | Shipped | |
 
 ## Sync & accounts
 

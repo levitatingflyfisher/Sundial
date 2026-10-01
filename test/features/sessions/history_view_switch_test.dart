@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,6 +79,57 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull);
     expect(find.text('Calendar'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(Duration.zero);
+  });
+
+  // Q-D3: search lived in the List view only. The field now sits above both
+  // views, and typing while the calendar shows switches to the List with
+  // the matches (a calendar has no meaning for a text search).
+  testWidgets('typing a search on the calendar switches to the List',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final now = DateTime.now();
+    await tester.runAsync(() async {
+      for (final (id, note) in [('a', 'Creek walk'), ('b', 'Park picnic')]) {
+        final start = DateTime(now.year, now.month, 1, 9);
+        await db.into(db.sessions).insert(SessionsCompanion.insert(
+              id: id,
+              startTime: start.millisecondsSinceEpoch,
+              endTime: start.millisecondsSinceEpoch + 3600000,
+              durationSecs: 3600,
+              notes: Value(note),
+              dateDay: '${now.year}-${now.month.toString().padLeft(2, '0')}-01',
+              createdAt: start.millisecondsSinceEpoch,
+              updatedAt: start.millisecondsSinceEpoch,
+            ));
+      }
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        appDatabaseProvider.overrideWith((_) => db),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+      child: const MaterialApp(home: HistoryScreen()),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    SegmentedButton<dynamic> seg() => tester.widget(find.byWidgetPredicate(
+        (w) => w is SegmentedButton));
+    final calendarSelected = seg().selected.single;
+
+    expect(find.byType(TextField), findsOneWidget,
+        reason: 'the search field is there on the calendar too');
+    await tester.enterText(find.byType(TextField), 'creek');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(seg().selected.single, isNot(calendarSelected),
+        reason: 'a query switches to the List');
+    expect(find.textContaining('Creek walk'), findsOneWidget);
+    expect(find.textContaining('Park picnic'), findsNothing);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(Duration.zero);
   });

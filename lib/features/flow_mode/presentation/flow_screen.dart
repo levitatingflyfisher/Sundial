@@ -91,6 +91,27 @@ class FlowScreen extends ConsumerWidget {
                     _FlowControls(state: timerState, notifier: notifier),
                     const SizedBox(height: 16),
                     _YearStatus(annualGoal: annualGoal),
+                    const SizedBox(height: 8),
+                    // History, Stats and Settings, reachable from Flow
+                    // without switching mode (ruling Q-D1).
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 4,
+                      children: [
+                        for (final (icon, word, path) in const [
+                          (LucideIcons.history, 'History', '/history'),
+                          (LucideIcons.barChart2, 'Stats', '/stats'),
+                          (LucideIcons.settings, 'Settings', '/settings'),
+                        ])
+                          TextButton.icon(
+                            icon: Icon(icon, size: 18),
+                            label: Text(word),
+                            onPressed: () =>
+                                GoRouter.maybeOf(context)?.go(path),
+                          ),
+                      ],
+                    ),
+                    const _RichOffer(),
                     const SizedBox(height: 24),
                     const ModePill(),
                     const SizedBox(height: 8),
@@ -166,6 +187,8 @@ class _FlowControls extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 content: const Text('Session saved'),
+                // Add notes is a convenience: the line lapses (C14).
+                persist: false,
                 action: SnackBarAction(
                   label: 'Add notes',
                   onPressed: () => context.push(
@@ -197,6 +220,8 @@ class _FlowControls extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: const Text('Session saved'),
+                    // Add notes is a convenience: the line lapses (C14).
+                    persist: false,
                     action: SnackBarAction(
                       label: 'Add notes',
                       onPressed: () => context.push(
@@ -232,6 +257,84 @@ class _YearStatus extends ConsumerWidget {
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
+    );
+  }
+}
+
+/// Rich, offered in context (ruling Q-D1, gamers-brain's middle path): Flow
+/// is the default, and once the household has a session to look back on,
+/// Flow says once what Rich adds. Not now puts it away for good; the mode
+/// pill below stays for anyone who changes their mind.
+class _RichOffer extends ConsumerStatefulWidget {
+  const _RichOffer();
+
+  static const dismissedKey = 'rich_offer_dismissed';
+
+  @override
+  ConsumerState<_RichOffer> createState() => _RichOfferState();
+}
+
+class _RichOfferState extends ConsumerState<_RichOffer> {
+  late bool _dismissed =
+      ref.read(sharedPreferencesProvider).getBool(_RichOffer.dismissedKey) ??
+          false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSession = (ref.watch(_yearSecondsProvider).valueOrNull ?? 0) > 0;
+    if (_dismissed || !hasSession) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Want History, Stats and badges too?',
+                  style: theme.textTheme.titleSmall),
+              const SizedBox(height: 4),
+              Text(
+                'Rich shows them over the same sessions. You can switch '
+                'back any time.',
+                style: theme.textTheme.bodyMedium,
+              ),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      ref
+                          .read(sharedPreferencesProvider)
+                          .setBool(_RichOffer.dismissedKey, true);
+                      setState(() => _dismissed = true);
+                    },
+                    child: const Text('Not now'),
+                  ),
+                  FilledButton(
+                    onPressed: () async {
+                      await ref
+                          .read(sharedPreferencesProvider)
+                          .setBool(_RichOffer.dismissedKey, true);
+                      ref.read(widgetLaunchOverrideProvider.notifier).state =
+                          false;
+                      await ref
+                          .read(settingsRepositoryProvider)
+                          .setAppMode(AppMode.rich);
+                      if (context.mounted) {
+                        GoRouter.maybeOf(context)?.go('/timer');
+                      }
+                    },
+                    child: const Text('Show me Rich'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

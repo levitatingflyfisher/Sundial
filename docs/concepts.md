@@ -86,16 +86,16 @@ stats/history can be filtered per profile or viewed for *Everyone*. This is enti
 sense. Viewing another profile's stats deliberately does not change the timer's
 active profile.
 
-## Focus mode vs. Full mode
+## Flow mode vs. Rich mode
 
 The same sessions render through two surfaces, chosen by a single `AppMode`
 preference:
 
-- **Focus** (`flow`) — one screen: a **7-day dot row** (a dot filled if you logged
+- **Flow** (`flow`) — one screen: a **7-day dot row** (a dot filled if you logged
   any time that day — a quiet pattern, *not* a streak with a loss mechanic), the
   timer, and a single `Xh / 1000h this year` line. The only path into old data is
   tapping today's dot to fix today's total.
-- **Full** (`rich`) — timer, history timeline, stats, badges, and profiles.
+- **Rich** (`rich`) — timer, history timeline, stats, badges, and profiles.
 
 Switching is instant and lossless; nothing is hidden behind a mode. See
 [ADR-0006](adr/0006-focus-mode-as-surface.md).

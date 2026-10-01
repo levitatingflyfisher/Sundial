@@ -67,7 +67,7 @@ A simple key/value table for durable preferences. The typed shape
 |---|---|
 | `annualGoalHours` | `1000` |
 | `monthlyGoalHours` | *unset* (optional) |
-| `appMode` | `flow` (Focus) |
+| `appMode` | `flow` (Flow) |
 | `flowTimerStyle` | `gnomon` (also `arc`, `dualRing`) |
 | `autoStopEnabled` | `false` |
 | `autoStopThresholdHours` | `2` |

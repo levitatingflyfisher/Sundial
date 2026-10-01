@@ -33,10 +33,10 @@ history, stats, badges, multiple people — is optional and stays out of the way
 
 Two ways to use the same data:
 
-- **Focus mode** — one screen: a 7-day dot row, the timer, and `247h / 1000h this
+- **Flow mode** — one screen: a 7-day dot row, the timer, and `247h / 1000h this
   year`. No tabs, no cards, no badges in your face. For people who want a habit,
   not a dashboard.
-- **Full mode** — the timer plus history, stats, charts, badges, and per-person
+- **Rich mode** — the timer plus history, stats, charts, badges, and per-person
   profiles. Same sessions underneath; just a richer surface.
 
 It is a *tool, not a slot machine.* No feed, no streak anxiety, no push nags, no
@@ -62,7 +62,7 @@ feature. Each is recorded as an [ADR](docs/adr/) and defended in the tests.
    analytics dependency, no telemetry, and no server to send anything to.
 5. **Your data is yours and portable.** Export to JSON, PDF, or plain text; import
    from JSON. A backup you can read, keep, and move.
-6. **Focus mode is a lens, not a lesser tier.** It renders the *same* sessions
+6. **Flow mode is a lens, not a lesser tier.** It renders the *same* sessions
    through a calmer surface. Switching modes is a single preference flag — no
    migration, no data hidden behind a paywall. ([ADR-0006](docs/adr/0006-focus-mode-as-surface.md))
 7. **Genuine craft.** Clean Architecture (domain / data / presentation), Riverpod,
@@ -90,8 +90,10 @@ before you rely on it. As of `0.1.0`:
   expected-to-date (goal × day of period ÷ days in period), said in words on Timer,
   Flow and Stats, and amber only when genuinely behind (`test/features/stats/pace_on_screen_test.dart`).
 - Badges with a confetti unlock; **multiple local profiles** for a household.
-- Export (JSON / PDF / plain text) and JSON import, robust to a bad row.
-- Focus and Full modes; light, dark or follow-the-phone theme (one control, in the app bar); 12/24-hour and week-start preferences.
+- Export (JSON / PDF / plain text) and JSON import, robust to a bad row. Import is
+  Merge only: it says first what the file would add, update and change (the goal from
+  X to Y), and takes a safety copy into Previous backups when backup is set up.
+- Flow and Rich modes; light, dark or follow-the-phone theme (one control, in the app bar); 12/24-hour and week-start preferences.
 - ~30+ test files across unit, widget, golden/visual, and an integration flow.
   Fonts are bundled (no Google Fonts egress); ships as an installable PWA and an
   Android APK.

@@ -271,7 +271,20 @@ void main() {
       expect(picker.lastWithData, isTrue,
           reason: 'without withData the web picker returns no bytes either — '
               'the import must request them');
-      expect(find.textContaining('Imported 1 sessions'), findsOneWidget,
+      // Merge only: the file is read back against this phone first.
+      expect(find.text('Merge this file?'), findsOneWidget);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Merge the file'));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      // The safety-copy check and the writes are real async work.
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Merged: 1 new'), findsOneWidget,
           reason: 'the import must complete from bytes alone');
     });
 

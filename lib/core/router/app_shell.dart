@@ -81,7 +81,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? const FlowScreen()
         : modeAsync.when(
             data: (mode) => mode == AppMode.flow
-                ? const FlowScreen()
+                ? _FlowShell(child: widget.child)
                 : _RichShell(child: widget.child),
             loading: () => const Scaffold(
               body: Center(child: CircularProgressIndicator()),
@@ -108,6 +108,43 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Flow mode: the timer is the whole app, but History, Stats and Settings
+/// stay reachable from it without switching mode (ruling Q-D1). They open
+/// as a plain page with a way back to the timer.
+class _FlowShell extends StatelessWidget {
+  const _FlowShell({required this.child});
+  final Widget child;
+
+  static const _titles = {
+    '/history': 'History',
+    '/stats': 'Stats',
+    '/settings': 'Settings',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _titles[GoRouterState.of(context).matchedLocation];
+    if (title == null) return const FlowScreen();
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          tooltip: 'Back to the timer',
+          onPressed: () => context.go('/timer'),
+        ),
+        title: Text(title),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: ThemeToggle(),
+          ),
+        ],
+      ),
+      body: OhPage(padding: EdgeInsets.zero, child: child),
     );
   }
 }

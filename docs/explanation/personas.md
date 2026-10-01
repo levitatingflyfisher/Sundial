@@ -69,5 +69,5 @@ labelled the same way in both sheets.
 
 **T3. The mode pill.** Start: Rich mode. Steps: tap the lit "Rich" segment of
 the mode pill. Success: nothing changes; only tapping "Flow" switches mode.
-Check: onboarding page 2 shows the word "Recommended" and does not look
-pre-selected.
+Check: onboarding asks no mode question (Flow by default); Flow offers Rich once
+after the first session.

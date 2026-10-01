@@ -32,7 +32,12 @@ void main() => runFleetConformance(const FleetAppConfig(
         // test/a11y/primary_action_sweep_test.dart.
         FleetCheck.c5PrimaryScreens,
       },
-      primaryActionScreens: {'TimerScreen', 'FlowScreen', 'ManualEntrySheet'},
+      primaryActionScreens: {
+        'TimerScreen',
+        'FlowScreen',
+        'ManualEntrySheet',
+        'HistoryScreen',
+      },
       // Tier T: local ThemeData built over openhearth_design tokens
       // (OhColors aliases + OhTypography.materialTextTheme), not OhTheme.
       styleTier: StyleTier.tokens,

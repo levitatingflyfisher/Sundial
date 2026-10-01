@@ -71,7 +71,7 @@ flowchart LR
     save --> sessions[(Sessions table)]
     sessions -->|reactive streams| stats[Stats: today / month / year / all-time]
     sessions --> hist[History timeline]
-    sessions --> dots[Focus 7-day dot row]
+    sessions --> dots[Flow 7-day dot row]
     sessions --> badges{badge check}
     badges -->|new milestone| confetti[confetti + earnedAt]
 ```
@@ -88,7 +88,7 @@ flowchart LR
 
 ## Two surfaces, one data model
 
-Focus mode and Full mode are the *same* sessions rendered differently. A single
+Flow mode and Rich mode are the *same* sessions rendered differently. A single
 `AppMode` preference (`flow` | `rich`) picks the surface; the app shell routes
 accordingly. No data is hidden behind a mode — switching is instant and lossless.
 See [ADR-0006](../adr/0006-focus-mode-as-surface.md).
@@ -96,7 +96,7 @@ See [ADR-0006](../adr/0006-focus-mode-as-surface.md).
 ```mermaid
 flowchart TB
     pref{AppMode preference}
-    pref -->|flow| focus[Focus: 7-day dots · timer · yearly total]
+    pref -->|flow| focus[Flow: 7-day dots · timer · yearly total]
     pref -->|rich| full[Full: timer · history · stats · badges · profiles]
     focus & full --> same[(same Sessions / Profiles / Badges tables)]
 ```
@@ -122,7 +122,7 @@ flowchart TB
 | **Sessions** (record / edit / history / manual entry) | `lib/features/sessions/` |
 | **Stats & charts** | `lib/features/stats/` |
 | **Badges** | `lib/features/badges/` |
-| **Focus mode** | `lib/features/flow_mode/` |
+| **Flow mode** | `lib/features/flow_mode/` |
 | **Profiles** | `lib/features/profiles/` |
 | **Settings / preferences** | `lib/features/settings/` |
 | **Export / import** | `lib/features/export/` |
@@ -139,6 +139,6 @@ and the [ADRs](../adr/).)
 2. **The repository interface is the only door to data.** Presentation never imports
    a DAO or Drift type directly.
 3. **Sessions are editable, always.** `durationSecs` is stored; no edit lock-out.
-4. **Focus and Full are the same data.** Mode is a render choice, never a data gate.
+4. **Flow and Rich are the same data.** Mode is a render choice, never a data gate.
 5. **Aggregates are reactive.** Stats, history, and the dot row are streams off the
    Sessions table — any add/edit/delete updates them without manual refresh.

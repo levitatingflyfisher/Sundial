@@ -247,53 +247,8 @@ class ExportScreen extends ConsumerWidget {
       }
       return;
     }
-    try {
-      final content = utf8.decode(bytes);
-      final payload = JsonImporter().parse(content);
-      final profilesRepo = ref.read(profilesRepositoryProvider);
-      // Restore profiles first so FKs resolve.
-      for (final p in payload.profiles) {
-        await profilesRepo.upsertRaw(p);
-      }
-      final repo = ref.read(sessionsRepositoryProvider);
-      int imported = 0;
-      for (final session in payload.sessions) {
-        final r = await repo.saveSession(session);
-        if (r.isRight()) imported++;
-      }
-      // Restore earned badges last, after sessions exist.
-      if (payload.earnedBadges.isNotEmpty) {
-        await ref
-            .read(badgesRepositoryProvider)
-            .restoreEarnedBadges(payload.earnedBadges);
-      }
-      // F10: the same annual-goal drop as the encrypted-backup restore path
-      // — a plain JSON backup carries the goal too, and it must be applied
-      // rather than silently discarded.
-      if (payload.annualGoalHours != null) {
-        await ref
-            .read(settingsRepositoryProvider)
-            .setAnnualGoalHours(payload.annualGoalHours!);
-      }
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Imported $imported sessions, ${payload.profiles.length} profiles, '
-              '${payload.earnedBadges.length} badges',
-            ),
-          ),
-        );
-      }
-    } catch (e, st) {
-      debugPrint('Import failed: $e\n$st');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Import failed. ${ohFriendlyErrorMessage(e)}')),
-        );
-      }
-    }
+    if (!context.mounted) return;
+    await importJsonBytes(context, ref, bytes);
   }
 
   // ── Encrypted restore (.ohbk) ───────────────────────────────────────
@@ -529,6 +484,132 @@ class _ExportTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Merges a JSON backup into this phone (Merge only, ruling Q-D2).
+///
+/// Before writing, it reads the file against what the phone holds and asks
+/// once, naming what would change: sessions it adds, sessions it updates,
+/// and the yearly goal from X to Y. A file that changes nothing asks
+/// nothing. On Merge, a safety copy goes into Previous backups first when
+/// backup is set up, and if that copy fails nothing is written. Nothing is
+/// ever deleted: sessions only on this phone stay.
+@visibleForTesting
+Future<void> importJsonBytes(
+  BuildContext context,
+  WidgetRef ref,
+  Uint8List bytes,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final payload = JsonImporter().parse(utf8.decode(bytes));
+    final repo = ref.read(sessionsRepositoryProvider);
+    final here = {
+      for (final s in await repo.watchAllSessions().first) s.id: s,
+    };
+    var added = 0, updated = 0;
+    for (final s in payload.sessions) {
+      final mine = here[s.id];
+      if (mine == null) {
+        added++;
+      } else if (mine.startTime != s.startTime ||
+          mine.endTime != s.endTime ||
+          mine.durationSecs != s.durationSecs ||
+          mine.notes != s.notes ||
+          mine.profileId != s.profileId ||
+          mine.dateDay != s.dateDay) {
+        updated++;
+      }
+    }
+    final prefs = await ref.read(settingsRepositoryProvider).getUserPrefs();
+    final goal = payload.annualGoalHours;
+    final goalChanges = goal != null && goal != prefs.annualGoalHours;
+    // Only what is new to this phone counts: re-importing your own backup
+    // (the common case) must not read as a change.
+    final profilesHere = {
+      for (final p in await ref.read(profilesRepositoryProvider).watchAll().first)
+        p.id: p,
+    };
+    final profiles = payload.profiles.where((c) {
+      final mine = profilesHere[c.id.value];
+      return mine == null ||
+          mine.name != c.name.value ||
+          mine.emoji != c.emoji.value ||
+          mine.colorValue != c.colorValue.value;
+    }).length;
+    final earnedHere = {
+      for (final b in await ref.read(badgesRepositoryProvider).watchAllBadges().first)
+        if (b.earnedAt != null) b.id,
+    };
+    final newBadges =
+        payload.earnedBadges.keys.where((id) => !earnedHere.contains(id)).length;
+
+    if (added == 0 && updated == 0 && !goalChanges && newBadges == 0 &&
+        profiles == 0) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Nothing in this file is new to this phone.')));
+      return;
+    }
+
+    if (!context.mounted) return;
+    final lines = <String>[
+      if (added > 0 || updated > 0)
+        'Adds $added ${added == 1 ? 'session' : 'sessions'} and updates '
+            '$updated already here.',
+      if (goalChanges)
+        'Your yearly goal changes from ${prefs.annualGoalHours}h to ${goal}h.',
+      if (profiles > 0)
+        'Adds or updates $profiles ${profiles == 1 ? 'profile' : 'profiles'}.',
+      if (newBadges > 0)
+        'Restores $newBadges earned ${newBadges == 1 ? 'badge' : 'badges'}.',
+      'Sessions only on this phone stay as they are.',
+    ];
+    final go = await showOhConfirm(
+      context,
+      title: 'Merge this file?',
+      message: lines.join('\n'),
+      confirmLabel: 'Merge the file',
+    );
+    if (!go) return;
+
+    // The way back: a verified safety copy before the first write.
+    final snap =
+        await ref.read(backupControllerProvider.notifier).snapshotBeforeWipe();
+    if (snap.outcome == PreWipeOutcome.failed) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text(
+              'Couldn’t make a safety copy, so nothing was imported.')));
+      return;
+    }
+
+    final profilesRepo = ref.read(profilesRepositoryProvider);
+    // Profiles first so the sessions' references resolve.
+    for (final p in payload.profiles) {
+      await profilesRepo.upsertRaw(p);
+    }
+    for (final session in payload.sessions) {
+      await repo.saveSession(session);
+    }
+    // Earned badges last, after the sessions exist.
+    if (payload.earnedBadges.isNotEmpty) {
+      await ref
+          .read(badgesRepositoryProvider)
+          .restoreEarnedBadges(payload.earnedBadges);
+    }
+    if (goalChanges) {
+      await ref.read(settingsRepositoryProvider).setAnnualGoalHours(goal);
+    }
+    messenger.showSnackBar(SnackBar(
+      content: Text('Merged: $added new, $updated updated.'
+          '${snap.outcome == PreWipeOutcome.taken ? ' A safety copy is in '
+              'Previous backups.' : ''}'),
+    ));
+  } catch (e, st) {
+    debugPrint('Import failed: $e\n$st');
+    messenger.showSnackBar(
+      SnackBar(content: Text('Import failed. ${ohFriendlyErrorMessage(e)}')),
     );
   }
 }

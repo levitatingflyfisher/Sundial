@@ -20,8 +20,8 @@ device: no account, no tracking, no cloud required.
 - **Stats** — Today / Month / Year / All-Time, a cumulative chart, a heatmap, and a
   per-month breakdown.
 - **Badges** — milestone confetti, without any nag to share or "keep the streak."
-- **Two modes** — *Focus* (one calm screen: 7-day dots, timer, yearly total) and
-  *Full* (history, stats, badges, profiles). Same data, different surface.
+- **Two modes** — *Flow* (one calm screen: 7-day dots, timer, yearly total) and
+  *Rich* (history, stats, badges, profiles). Same data, different surface.
 - **Multiple profiles** — track a household locally.
 - **Export / import** — JSON, PDF, and plain text out; JSON back in. Your data is
   yours.

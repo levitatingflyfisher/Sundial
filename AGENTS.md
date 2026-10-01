@@ -22,8 +22,8 @@ When you rely on a claim, confirm it (read the code, run the test) first.
 
 A **local-first outdoor-time tracker** (Flutter, mobile + web). Start a timer, go
 outside, stop it; log time against a personal yearly goal. Everything runs on-device
-via Drift/SQLite with **no account and no network calls**. Two UI surfaces (Focus
-and Full) render the same data. State is Riverpod; the layout is Clean Architecture,
+via Drift/SQLite with **no account and no network calls**. Two UI surfaces (Flow
+and Rich) render the same data. State is Riverpod; the layout is Clean Architecture,
 feature-first.
 
 ## Non-negotiables (breaking one is a regression, not a feature)
@@ -62,7 +62,7 @@ Riverpod controllers). See [OVERVIEW.md § module map](docs/architecture/OVERVIE
 | **A session** (record / edit / delete / manual entry / history) | `features/sessions/` |
 | **Stats, charts, goal pacing** | `features/stats/` (`stats_screen.dart`, `cumulative_chart.dart`, `heatmap_chart.dart`) |
 | **Badges / milestones / confetti** | `features/badges/` |
-| **Focus mode** (7-day dots, sundial face) | `features/flow_mode/` (`flow_screen.dart`, `dot_row.dart`, `sundial_face.dart`) |
+| **Flow mode** (7-day dots, sundial face) | `features/flow_mode/` (`flow_screen.dart`, `dot_row.dart`, `sundial_face.dart`) |
 | **Profiles** (multiple people, local) | `features/profiles/` |
 | **Settings / preferences** | `features/settings/` (`domain/user_prefs.dart`) |
 | **Export / import** | `features/export/` |

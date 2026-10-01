@@ -35,6 +35,20 @@ void main() {
       );
     });
 
+    // Q-D5: past the 3h sweep the arc wraps; the finished lap shows faintly
+    // and the caption names the lap.
+    testWidgets('Gnomon on its second lap, 4h30m', (tester) async {
+      await tester.pumpWidget(_wrap(const SundialFace(
+        yearTotal: Duration.zero,
+        elapsed: Duration(hours: 4, minutes: 30),
+        style: FlowTimerStyle.gnomon,
+      )));
+      await expectLater(
+        find.byType(SundialFace),
+        matchesGoldenFile('goldens/sundial_gnomon_lap2.png'),
+      );
+    });
+
     testWidgets('Arc running 1h23m', (tester) async {
       await tester.pumpWidget(_wrap(const SundialFace(
         yearTotal: Duration.zero,
